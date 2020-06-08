@@ -1,0 +1,306 @@
+{
+  "database_name": "test_2",
+  "drop": true,
+  "tables": [
+    {
+      "name": "users",
+      "fake_qty": 100,
+      "fields": [
+        {
+          "name": "id",
+          "type": "int",
+          "size": null,
+          "ai": true,
+          "null": false,
+          "pk": true,
+          "index": false,
+          "default": "",
+          "fake_cmd": null
+        },
+        {
+          "name": "email",
+          "type": "varchar",
+          "size": 100,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake_cmd": "fake.email()"
+        },
+        {
+          "name": "username",
+          "type": "varchar",
+          "size": 100,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "fake.name()"
+        },
+        {
+          "name": "password",
+          "type": "varchar",
+          "size": 60,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "fake.word()"
+
+        },
+        {
+          "name": "first_name",
+          "type": "varchar",
+          "size": 50,
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "Simon",
+          "fake_cmd": "fake.first_name()"
+        },
+        {
+          "name": "last_name",
+          "type": "varchar",
+          "size": 50,
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "fake.last_name()"
+        }
+      ]
+    },
+    {
+      "name": "items",
+      "fake_qty": 300,
+      "fields": [
+        {
+          "name": "id",
+          "type": "int",
+          "size": true,
+          "ai": true,
+          "null": false,
+          "pk": true,
+          "index": false,
+          "default": "",
+          "fake_cmd": null
+        },
+        {
+          "name": "name",
+          "type": "varchar",
+          "size": 50,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "' '.join(fake.words(nb=3))"
+        },
+        {
+          "name": "part_number",
+          "type": "varchar",
+          "size": 50,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake_cmd": "fake.ssn()"
+        },
+        {
+          "name": "description",
+          "type": "longtext",
+          "size": null,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "fake.sentence()"
+        },
+        {
+          "name": "legnth",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "randomNumber(1,100,2)"
+        },
+        {
+          "name": "height",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "randomNumber(1,100,2)"
+        },
+        {
+          "name": "width",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "randomNumber(1,100,2)"
+        },
+        {
+          "name": "weight",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "randomNumber(1,100,2)"
+        }
+      ]
+    },
+    {
+      "name": "vendors",
+      "fake_qty": 100,
+      "fields": [
+        {
+          "name": "id",
+          "type": "int",
+          "size": null,
+          "ai": true,
+          "null": false,
+          "pk": true,
+          "index": false,
+          "default": "",
+          "fake_cmd": null
+        },
+        {
+          "name": "name",
+          "type": "varchar",
+          "size": 100,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake_cmd": "fake.company()"
+        },
+        {
+          "name": "address",
+          "type": "longtext",
+          "size": null,
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "fake.address()"
+        },
+        {
+          "name": "email",
+          "type": "varchar",
+          "size": 100,
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "fake.email()"
+        },
+        {
+          "name": "telephone",
+          "type": "varchar",
+          "size": 25,
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "fake.phone_number()"
+        }
+      ]
+    },
+    {
+      "name": "item_vendors",
+      "fake_qty": "table|each|items",
+      "fields": [
+        {
+          "name": "id",
+          "type": "int",
+          "size": 11,
+          "ai": true,
+          "null": false,
+          "pk": true,
+          "index": false,
+          "default": "",
+          "fake_cmd": null
+        },
+        {
+          "name": "vendor_id",
+          "type": "int",
+          "size": 11,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake_cmd": "table|vendors|random|id"
+        },
+        {
+          "name": "item_id",
+          "type": "int",
+          "size": 11,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake_cmd": "each|id"
+        },
+        {
+          "name": "price",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake_cmd": "randomNumber(1,10000,2)"
+        },
+        {
+          "name": "lead_time",
+          "type": "int",
+          "size": 4,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake_cmd": "randomNumber(1,365,0)"
+        },
+        {
+          "name": "currency",
+          "type": "varchar",
+          "size": 3,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake_cmd": "fake.random_element(elements=OrderedDict([('GBP',0.75),('USD',0.05),('EUR',0.2)]))"
+        }
+      ]
+    }
+  ]
+}
