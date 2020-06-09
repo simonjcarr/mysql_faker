@@ -8,6 +8,8 @@ from create_database import create_db
 import random
 import json
 import collections
+import time
+from datetime import datetime
 try:
     from collections import OrderedDict
 except ImportError:
@@ -23,13 +25,16 @@ db = connect_db()
 cursor = db.cursor(dictionary=True)
 
 words_engineering = []
-
+row_data = {}
 def clearTable(table_name):
   cursor.execute("TRUNCATE TABLE %s"%(table_name))
   db.commit()
 
-def randomNumber(start, end, prec=0):
-  return round(random.uniform(start,end),prec)
+def random_number(start, end, prec=0):
+  number = round(random.uniform(start,end),prec)
+  if(prec == 0):
+    return int(number)
+  return number
 
 def engineering_words(numWords=3):
   global words_engineering
@@ -58,7 +63,20 @@ def getRecordFromTable(command):
     #todo get last record in table
     pass
 
-def getFakeData(fakeString, data=None):
+def date_greater_than_field(field_name):
+  startDate = datetime.strptime(row_data[field_name].strip('"'), "%Y-%m-%d")
+  startDays = abs((startDate - datetime.now()).days)
+  dateObj = fake.date_between(start_date="-"+str(startDays)+"days", end_date='today')
+  mysqlDate = dateObj.strftime('%Y-%m-%d')
+  return str(mysqlDate)
+
+
+def date_between(start_date, end_date):
+  dateObj = fake.date_between(start_date, end_date)
+  mysqlDate = dateObj.strftime('%Y-%m-%d')
+  return str(mysqlDate)
+
+def getFakeData(fakeString, fieldName, data=None):
   if(fakeString == None):
     return
   #Check if this fake command is get data from the data variable
@@ -68,9 +86,11 @@ def getFakeData(fakeString, data=None):
       return ""
     else:
       #Get the field name with which holds the data to return
+      row_data[fieldName] = fakeString[5:]
       field = fakeString[5:]
       try:
         #If we can find the data field return the data
+        row_data[fieldName] = data[field]
         return data[field]
       except:
         #If we can't find the data field, generate an error message and return an empty string
@@ -79,19 +99,22 @@ def getFakeData(fakeString, data=None):
 
   if(str(fakeString[0:5]).lower() == 'table'):
     #Get data from a table
-    return getRecordFromTable(fakeString)
+    value = getRecordFromTable(fakeString)
+    row_data[fieldName] = value
+    return "'" + str(value) + "'"
   #We must have a proper faker command. we use eval to generate the data
   value = eval(fakeString)
   if(type(value) is int or type(value) is float):
+    row_data[fieldName] = value
     return value
   else:
+    row_data[fieldName] = "\"%s\""%(value)
     return "\"%s\""%(value)
 
 def generateData(table, qty=1, eachData=None):
-  #print(table)
-  #print(qty)
-  #print(eachData)
+  global row_data
   for _ in range(qty):
+    row_data = {}
     sql = "INSERT INTO %s"%(table['name'])
     sql = sql + "("
 
@@ -104,7 +127,7 @@ def generateData(table, qty=1, eachData=None):
     for field in table['fields']:
       if(field['fake_cmd'] == None):
         continue
-      sql = sql + str(getFakeData(field['fake_cmd'], eachData)) + ","
+      sql = sql + "" + str(getFakeData(field['fake_cmd'], field['name'], eachData)) + ","
     sql = sql[0:-1]
     sql = sql + ")"
     #print(sql)
@@ -121,6 +144,7 @@ def generateTableEach(table):
   #Get table name
   commands = table['fake_qty'].split("|")
   table_name = commands[2]
+  
   #Get number of records from table
   record_count = getTableRecordCount(table_name)
   itter_count = 0
@@ -129,7 +153,21 @@ def generateTableEach(table):
     cursor.execute("select * from %s limit %d offset %d"%(table_name,limit,offset))
     records = cursor.fetchall()
     for record in records:
-      generateData(table, 1, record)
+      try:
+        start_qty = commands[3]
+      except:
+        start_qty = 1
+      
+      try:
+        end_qty = commands[4]
+      except:
+        end_qty = None
+      
+      if(end_qty is not None):
+        qty = random_number(int(start_qty), int(end_qty), 0)
+      else:
+        qty = start_qty
+      generateData(table, qty, record)
 
 #populate the database tables with data using faker
 

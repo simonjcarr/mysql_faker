@@ -57,6 +57,9 @@ def formatType(field):
   if(field['type'].upper() == 'FLOAT'):
     strType = "FLOAT"
 
+  if(field['type'].upper() == 'DATETIME'):
+    strType = 'DATETIME'
+
   if(addSize):
     strType = strType + " (%s)"%(field['size'])
 

@@ -132,7 +132,7 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "randomNumber(1,100,2)"
+          "fake_cmd": "random_number(1,100,2)"
         },
         {
           "name": "height",
@@ -143,7 +143,7 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "randomNumber(1,100,2)"
+          "fake_cmd": "random_number(1,100,2)"
         },
         {
           "name": "width",
@@ -154,7 +154,7 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "randomNumber(1,100,2)"
+          "fake_cmd": "random_number(1,100,2)"
         },
         {
           "name": "weight",
@@ -165,7 +165,7 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "randomNumber(1,100,2)"
+          "fake_cmd": "random_number(1,100,2)"
         }
       ]
     },
@@ -276,7 +276,7 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "randomNumber(1,10000,2)"
+          "fake_cmd": "random_number(1,10000,2)"
         },
         {
           "name": "lead_time",
@@ -287,7 +287,7 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "randomNumber(1,365,0)"
+          "fake_cmd": "random_number(1,365,0)"
         },
         {
           "name": "currency",
@@ -299,6 +299,128 @@
           "index": true,
           "default": "",
           "fake_cmd": "fake.random_element(elements=OrderedDict([('GBP',0.75),('USD',0.05),('EUR',0.2)]))"
+        }
+      ]
+    },
+    {
+      "name": "purchase_orders",
+      "fake_qty": 20,
+      "fields": [
+        {
+          "name": "id",
+          "type": "int",
+          "size": 11,
+          "ai": true,
+          "null": false,
+          "pk": true,
+          "index": false,
+          "default": "",
+          "fake_cmd": null
+        },
+        {
+          "name": "purchase_order",
+          "type": "varchar",
+          "size": 11,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "random_number(1,99999999,0)"
+        },
+        {
+          "name": "purchase_order_date",
+          "type": "DATETIME",
+          "size": false,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "date_between(start_date='-2y',end_date='today')"
+        },
+        {
+          "name": "confirmed_date",
+          "type": "DATETIME",
+          "size": false,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "date_greater_than_field('purchase_order_date')"
+        },
+        {
+          "name": "promise_date",
+          "type": "DATETIME",
+          "size": false,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "date_greater_than_field('confirmed_date')"
+        }
+      ]
+    },
+    {
+      "name": "purchase_order_lines",
+      "fake_qty": "table|each|purchase_orders|1|20",
+      "fields": [
+        {
+          "name": "id",
+          "type": "int",
+          "size": 11,
+          "ai": true,
+          "null": false,
+          "pk": true,
+          "index": false,
+          "default": "",
+          "fake_cmd": null
+        },
+        {
+          "name": "purchase_order",
+          "type": "varchar",
+          "size": 11,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "each:purchase_order"
+        },
+        {
+          "name": "item",
+          "type": "varchar",
+          "size": 200,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "table|items|random|part_number"
+        },
+        {
+          "name": "qty",
+          "type": "int",
+          "size": 6,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "random_number(1,200,0)"
+        },
+        {
+          "name": "price",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake_cmd": "random_number(1,2000,2)"
         }
       ]
     }
