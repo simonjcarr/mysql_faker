@@ -99,7 +99,7 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "' '.join(fake.words(nb=3))"
+          "fake_cmd": "engineering_words(3)"
         },
         {
           "name": "part_number",
@@ -121,7 +121,7 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "fake.sentence()"
+          "fake_cmd": "engineering_words(random.randint(5,12))"
         },
         {
           "name": "legnth",

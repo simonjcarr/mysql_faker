@@ -22,12 +22,23 @@ fake.add_provider(company)
 db = connect_db()
 cursor = db.cursor(dictionary=True)
 
+words_engineering = []
+
 def clearTable(table_name):
   cursor.execute("TRUNCATE TABLE %s"%(table_name))
   db.commit()
 
 def randomNumber(start, end, prec=0):
   return round(random.uniform(start,end),prec)
+
+def engineering_words(numWords=3):
+  global words_engineering
+  if(len(words_engineering) == 0):
+    file_eng = open('words/engineering.txt')
+    words_engineering = [line.strip() for line in file_eng]
+    file_eng.close()
+  words = random.sample(words_engineering, numWords)
+  return ' '.join(words)
 
 def getRecordFromTable(command):
   commands = command.split("|")
