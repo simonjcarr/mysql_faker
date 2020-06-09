@@ -16,7 +16,9 @@ except ImportError:
     OrderedDict = dict
 
 fake = Faker()
-Faker.seed(0)
+seed = 0
+Faker.seed(seed)
+random.seed(0)
 fake.add_provider(internet)
 fake.add_provider(phone_number)
 fake.add_provider(company)
