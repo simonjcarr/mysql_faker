@@ -87,7 +87,7 @@ def getFakeData(fakeList, fieldName, data=None):
   for cmd in fakeList:
     fakeCommands.append(cmd['command'])
     fakeWeights.append(cmd['percent'])
-  print(fakeCommands)
+  #print(fakeCommands)
   fakeString = random.choices(fakeCommands, fakeWeights)[0]
   
   
@@ -115,7 +115,7 @@ def getFakeData(fakeList, fieldName, data=None):
     row_data[fieldName] = value
     return "'" + str(value) + "'"
   #We must have a proper faker command. we use eval to generate the data
-  print(fakeString)
+  #print(fakeString)
   value = eval(fakeString)
   if(type(value) is int or type(value) is float):
     row_data[fieldName] = value
@@ -143,7 +143,7 @@ def generateData(table, qty=1, eachData=None):
       sql = sql + "" + str(getFakeData(field['fake'], field['name'], eachData)) + ","
     sql = sql[0:-1]
     sql = sql + ")"
-    print(sql)
+    #print(sql)
     cursor.execute(sql)
   db.commit()
 
