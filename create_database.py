@@ -70,7 +70,7 @@ def create_db(db_name, drop=False):
   #Drop the database if drop == True
   if(drop):
     cursor.execute("DROP DATABASE IF EXISTS %s"%(db_name))
-    db.commit()
+    #db.commit()
 
   #Create the database
   try:
