@@ -192,3 +192,4 @@ for table in fakeData['tables']:
   elif(fake_qty[0:10] == "table|each"):
     generateTableEach(table)
 close_db(db)
+print("Data creation complete")
