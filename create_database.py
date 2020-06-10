@@ -70,12 +70,12 @@ def create_db(db_name, drop=False):
   #Drop the database if drop == True
   if(drop):
     cursor.execute("DROP DATABASE IF EXISTS %s"%(db_name))
-    #db.commit()
+    db.commit()
 
   #Create the database
   try:
     cursor.execute("CREATE DATABASE IF NOT EXISTS " + db_name)
-    #db.commit()
+    db.commit()
     print("Database %s created" % (db_name))
   except Exception as e:
     print("Error creating database: " + str(e))

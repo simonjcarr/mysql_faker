@@ -78,9 +78,19 @@ def date_between(start_date, end_date):
   mysqlDate = dateObj.strftime('%Y-%m-%d')
   return str(mysqlDate)
 
-def getFakeData(fakeString, fieldName, data=None):
-  if(fakeString == None):
+def getFakeData(fakeList, fieldName, data=None):
+  if(fakeList == None or type(fakeList) is not list):
     return
+
+  fakeCommands = []
+  fakeWeights = []
+  for cmd in fakeList:
+    fakeCommands.append(cmd['command'])
+    fakeWeights.append(cmd['percent'])
+  print(fakeCommands)
+  fakeString = random.choices(fakeCommands, fakeWeights)[0]
+  
+  
   #Check if this fake command is get data from the data variable
   if(str(fakeString[0:4]).lower() == 'each'):
     if(data is None):
@@ -93,7 +103,7 @@ def getFakeData(fakeString, fieldName, data=None):
       try:
         #If we can find the data field return the data
         row_data[fieldName] = data[field]
-        return data[field]
+        return '"' + str(data[field]) + '"'
       except:
         #If we can't find the data field, generate an error message and return an empty string
         print("Error: Unable to find specified field '%s' in the data provided"%(field))
@@ -105,6 +115,7 @@ def getFakeData(fakeString, fieldName, data=None):
     row_data[fieldName] = value
     return "'" + str(value) + "'"
   #We must have a proper faker command. we use eval to generate the data
+  print(fakeString)
   value = eval(fakeString)
   if(type(value) is int or type(value) is float):
     row_data[fieldName] = value
@@ -121,18 +132,18 @@ def generateData(table, qty=1, eachData=None):
     sql = sql + "("
 
     for field in table['fields']:
-      if(field['fake_cmd'] == None):
+      if(field['fake'] == None or type(field['fake']) is not list):
         continue
       sql = sql + field['name'] + ","
     sql = sql[0:-1]
     sql = sql + ") values ("
     for field in table['fields']:
-      if(field['fake_cmd'] == None):
+      if(field['fake'] == None or type(field['fake']) is not list):
         continue
-      sql = sql + "" + str(getFakeData(field['fake_cmd'], field['name'], eachData)) + ","
+      sql = sql + "" + str(getFakeData(field['fake'], field['name'], eachData)) + ","
     sql = sql[0:-1]
     sql = sql + ")"
-    #print(sql)
+    print(sql)
     cursor.execute(sql)
   db.commit()
 

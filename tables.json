@@ -15,7 +15,7 @@
           "pk": true,
           "index": false,
           "default": "",
-          "fake_cmd": null
+          "fake": null
         },
         {
           "name": "email",
@@ -26,7 +26,11 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "fake.email()"
+          "fake":[
+              {"command": "fake.email()", "percent": 0.5},
+              {"command": "fake.name()", "percent": 0.4},
+              {"command": "fake.first_name()", "percent": 0.1}
+            ]
         },
         {
           "name": "username",
@@ -37,7 +41,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "fake.name()"
+          "fake": [
+            {"command": "fake.name()", "percent": 1}
+          ]
         },
         {
           "name": "password",
@@ -48,8 +54,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "fake.word()"
-
+          "fake": [
+            {"command": "fake.password()", "percent": 1}
+          ]
         },
         {
           "name": "first_name",
@@ -60,7 +67,9 @@
           "pk": false,
           "index": false,
           "default": "Simon",
-          "fake_cmd": "fake.first_name()"
+          "fake": [
+            {"command": "fake.first_name()", "percent": 1}
+          ]
         },
         {
           "name": "last_name",
@@ -71,7 +80,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "fake.last_name()"
+          "fake": [
+            {"command": "fake.last_name()", "percent": 1}
+          ]
         }
       ]
     },
@@ -88,7 +99,7 @@
           "pk": true,
           "index": false,
           "default": "",
-          "fake_cmd": null
+          "fake": null
         },
         {
           "name": "name",
@@ -99,7 +110,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "engineering_words(3)"
+          "fake": [
+            {"command": "engineering_words(3)", "percent": 1}
+          ]
         },
         {
           "name": "part_number",
@@ -110,7 +123,9 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "fake.ssn()"
+          "fake": [
+            {"command": "fake.ssn()", "percent": 1}
+          ]
         },
         {
           "name": "description",
@@ -121,7 +136,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "engineering_words(random.randint(5,12))"
+          "fake": [
+            {"command": "engineering_words(random.randint(5,12))", "percent": 1}
+          ]
         },
         {
           "name": "legnth",
@@ -132,7 +149,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "random_number(1,100,2)"
+          "fake": [
+            {"command": "random_number(1,100,2)", "percent": 1}
+          ]
         },
         {
           "name": "height",
@@ -143,7 +162,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "random_number(1,100,2)"
+          "fake": [
+            {"command": "random_number(1,100,2)", "percent": 1}
+          ]
         },
         {
           "name": "width",
@@ -154,7 +175,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "random_number(1,100,2)"
+          "fake": [
+            {"command": "random_number(1,100,2)", "percent": 1}
+          ]
         },
         {
           "name": "weight",
@@ -165,7 +188,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "random_number(1,100,2)"
+          "fake": [
+            {"command": "random_number(1,100,2)", "percent": 1}
+          ]
         }
       ]
     },
@@ -182,7 +207,7 @@
           "pk": true,
           "index": false,
           "default": "",
-          "fake_cmd": null
+          "fake": null
         },
         {
           "name": "name",
@@ -193,7 +218,9 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "fake.company()"
+          "fake": [
+            {"command": "fake.company()", "percent": 1}
+          ]
         },
         {
           "name": "address",
@@ -204,7 +231,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "fake.address()"
+          "fake": [
+            {"command": "fake.address()", "percent": 1}
+          ]
         },
         {
           "name": "email",
@@ -215,7 +244,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "fake.email()"
+          "fake": [
+            {"command": "fake.email()", "percent": 1}
+          ]
         },
         {
           "name": "telephone",
@@ -226,7 +257,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "fake.phone_number()"
+          "fake": [
+            {"command": "fake.phone_number()", "percent": 1}
+          ]
         }
       ]
     },
@@ -243,7 +276,7 @@
           "pk": true,
           "index": false,
           "default": "",
-          "fake_cmd": null
+          "fake": null
         },
         {
           "name": "vendor_id",
@@ -254,7 +287,9 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "table|vendors|random|id"
+          "fake": [
+            {"command": "table|vendors|random|id", "percent": 1}
+          ]
         },
         {
           "name": "item_id",
@@ -265,7 +300,9 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "each|id"
+          "fake": [
+            {"command": "each|id", "percent": 1}
+          ]
         },
         {
           "name": "price",
@@ -276,7 +313,9 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "random_number(1,10000,2)"
+          "fake": [
+            {"command": "random_number(1,10000,2)", "percent": 1}
+          ]
         },
         {
           "name": "lead_time",
@@ -287,7 +326,9 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "random_number(1,365,0)"
+          "fake": [
+            {"command": "random_number(1,365,0)", "percent": 1}
+          ]
         },
         {
           "name": "currency",
@@ -298,7 +339,9 @@
           "pk": false,
           "index": true,
           "default": "",
-          "fake_cmd": "fake.random_element(elements=OrderedDict([('GBP',0.75),('USD',0.05),('EUR',0.2)]))"
+          "fake": [
+            {"command": "fake.random_element(elements=OrderedDict([('GBP',0.75),('USD',0.05),('EUR',0.2)]))", "percent": 1}
+          ]
         }
       ]
     },
@@ -315,7 +358,7 @@
           "pk": true,
           "index": false,
           "default": "",
-          "fake_cmd": null
+          "fake": null
         },
         {
           "name": "purchase_order",
@@ -326,7 +369,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "random_number(1,99999999,0)"
+          "fake": [
+            {"command": "random_number(1,99999999,0)", "percent": 1}
+          ]
         },
         {
           "name": "purchase_order_date",
@@ -337,7 +382,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "date_between(start_date='-2y',end_date='today')"
+          "fake": [
+            {"command": "date_between(start_date='-2y',end_date='today')", "percent": 1}
+          ]
         },
         {
           "name": "confirmed_date",
@@ -348,7 +395,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "date_greater_than_field('purchase_order_date')"
+          "fake": [
+            {"command": "date_greater_than_field('purchase_order_date')", "percent": 1}
+          ]
         },
         {
           "name": "promise_date",
@@ -359,7 +408,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "date_greater_than_field('confirmed_date')"
+          "fake": [
+            {"command": "date_greater_than_field('confirmed_date')", "percent": 1}
+          ]
         }
       ]
     },
@@ -376,7 +427,7 @@
           "pk": true,
           "index": false,
           "default": "",
-          "fake_cmd": null
+          "fake": null
         },
         {
           "name": "purchase_order",
@@ -387,7 +438,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "each:purchase_order"
+          "fake": [
+            {"command": "each|purchase_order", "percent": 1}
+          ]
         },
         {
           "name": "item",
@@ -398,7 +451,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "table|items|random|part_number"
+          "fake": [
+            {"command": "table|items|random|part_number", "percent": 1}
+          ]
         },
         {
           "name": "qty",
@@ -409,7 +464,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "random_number(1,200,0)"
+          "fake": [
+            {"command": "random_number(1,200,0)", "percent": 1}
+          ]
         },
         {
           "name": "price",
@@ -420,7 +477,9 @@
           "pk": false,
           "index": false,
           "default": "",
-          "fake_cmd": "random_number(1,2000,2)"
+          "fake": [
+            {"command": "random_number(1,2000,0)", "percent": 1}
+          ]
         }
       ]
     }
