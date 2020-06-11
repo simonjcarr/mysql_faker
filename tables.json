@@ -331,6 +331,19 @@
           ]
         },
         {
+          "name": "lower_price",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake": [
+            {"command": "number_less_than_field('price',10)", "percent": 1}
+          ]
+        },
+        {
           "name": "lead_time",
           "type": "int",
           "size": 4,

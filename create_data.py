@@ -88,7 +88,18 @@ def number_greater_than_field(field_name, max=100):
       print("Error in get_number_greater_than_field: %s"%(e))
       sys.exit()
   return random_number(field_value, max, 0 if type(field_value) is int else 2)
-    
+
+def number_less_than_field(field_name, min=0):
+  field_value = row_data[field_name]
+  if(field_value == min):
+    return field_value
+  if(type(field_value) is not float and type(field_value) is not int):
+    try:
+      field_value = float(field_value)
+    except Exception as e:
+      print("Error in get_number_greater_than_field: %s"%(e))
+      sys.exit()
+  return random_number(min, field_value, 0 if type(field_value) is int else 2)
 
 def date_between(start_date, end_date):
   dateObj = fake.date_between(start_date, end_date)
