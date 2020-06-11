@@ -87,13 +87,7 @@ def number_greater_than_field(field_name, max=100):
     except Exception as e:
       print("Error in get_number_greater_than_field: %s"%(e))
       sys.exit()
-
-  number = random_number(field_value, max, 0 if type(field_value) is int else 2)
-  
-  if(number > max):
-    return max
-  else:
-    return number
+  return random_number(field_value, max, 0 if type(field_value) is int else 2)
     
 
 def date_between(start_date, end_date):
