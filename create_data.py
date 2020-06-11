@@ -8,6 +8,7 @@ from create_database import create_db
 import random
 import json
 import collections
+import sys
 import time
 from datetime import datetime
 try:
@@ -17,6 +18,7 @@ except ImportError:
 
 table_count = 0
 row_count = 0
+fake_string = ""
 
 fake = Faker()
 seed = 0
@@ -75,56 +77,75 @@ def date_greater_than_field(field_name):
   mysqlDate = dateObj.strftime('%Y-%m-%d')
   return str(mysqlDate)
 
+def number_greater_than_field(field_name, max=100):
+  field_value = row_data[field_name]
+  if(field_value == max):
+    return field_value
+  if(type(field_value) is not float and type(field_value) is not int):
+    try:
+      field_value = float(field_value)
+    except Exception as e:
+      print("Error in get_number_greater_than_field: %s"%(e))
+      sys.exit()
+
+  number = random_number(field_value, max, 0 if type(field_value) is int else 2)
+  
+  if(number > max):
+    return max
+  else:
+    return number
+    
 
 def date_between(start_date, end_date):
   dateObj = fake.date_between(start_date, end_date)
   mysqlDate = dateObj.strftime('%Y-%m-%d')
   return str(mysqlDate)
 
-def getFakeData(fakeList, fieldName, data=None):
-  if(fakeList == None or type(fakeList) is not list):
+def getFakeData(fake_list, field_name, data=None):
+  global fake_string
+  if(fake_list == None or type(fake_list) is not list):
     return
 
-  fakeCommands = []
-  fakeWeights = []
-  for cmd in fakeList:
-    fakeCommands.append(cmd['command'])
-    fakeWeights.append(cmd['percent'])
+  fake_commands = []
+  fake_weights = []
+  for cmd in fake_list:
+    fake_commands.append(cmd['command'])
+    fake_weights.append(cmd['percent'])
   #print(fakeCommands)
-  fakeString = random.choices(fakeCommands, fakeWeights)[0]
+  fake_string = random.choices(fake_commands, fake_weights)[0]
   
   
   #Check if this fake command is get data from the data variable
-  if(str(fakeString[0:4]).lower() == 'each'):
+  if(str(fake_string[0:4]).lower() == 'each'):
     if(data is None):
       print("Warning: Your fake command was 'each', but no data was provided")
       return ""
     else:
       #Get the field name with which holds the data to return
-      row_data[fieldName] = fakeString[5:]
-      field = fakeString[5:]
+      row_data[field_name] = fake_string[5:]
+      field = fake_string[5:]
       try:
         #If we can find the data field return the data
-        row_data[fieldName] = data[field]
+        row_data[field_name] = data[field]
         return '"' + str(data[field]) + '"'
       except:
         #If we can't find the data field, generate an error message and return an empty string
         print("Error: Unable to find specified field '%s' in the data provided"%(field))
         return ""
 
-  if(str(fakeString[0:5]).lower() == 'table'):
+  if(str(fake_string[0:5]).lower() == 'table'):
     #Get data from a table
-    value = getRecordFromTable(fakeString)
-    row_data[fieldName] = value
+    value = getRecordFromTable(fake_string)
+    row_data[field_name] = value
     return "'" + str(value) + "'"
   #We must have a proper faker command. we use eval to generate the data
   #print(fakeString)
-  value = eval(fakeString)
+  value = eval(fake_string)
   if(type(value) is int or type(value) is float):
-    row_data[fieldName] = value
+    row_data[field_name] = value
     return value
   else:
-    row_data[fieldName] = "\"%s\""%(value)
+    row_data[field_name] = "\"%s\""%(value)
     return "\"%s\""%(value)
 
 def generateData(table, qty=1, eachData=None):
@@ -136,6 +157,7 @@ def generateData(table, qty=1, eachData=None):
     sql = sql + "("
 
     for field in table['fields']:
+      field_def = field
       if(field['fake'] == None or type(field['fake']) is not list):
         continue
       sql = sql + field['name'] + ","
