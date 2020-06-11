@@ -15,6 +15,9 @@ try:
 except ImportError:
     OrderedDict = dict
 
+table_count = 0
+row_count = 0
+
 fake = Faker()
 seed = 0
 Faker.seed(seed)
@@ -126,6 +129,7 @@ def getFakeData(fakeList, fieldName, data=None):
 
 def generateData(table, qty=1, eachData=None):
   global row_data
+  global row_count
   for _ in range(qty):
     row_data = {}
     sql = "INSERT INTO %s"%(table['name'])
@@ -145,6 +149,7 @@ def generateData(table, qty=1, eachData=None):
     sql = sql + ")"
     #print(sql)
     cursor.execute(sql)
+    row_count = row_count + 1
   db.commit()
 
 def getTableRecordCount(table):
@@ -183,24 +188,26 @@ def generateTableEach(table):
       generateData(table, qty, record)
 
 #populate the database tables with data using faker
-
 with open("./tables.json") as f:
   fakeData = json.load(f)
 
 #Create database
-create_db(fakeData['database_name'])
+create_db(fakeData['database_name'], True)
 
 #Use database
 cursor.execute("USE %s"%(fakeData['database_name']))
+print("Populating database with fake data")
 
 for table in fakeData['tables']:
   # if(table['truncate']):
   #   cursor.execute("TRUNCATE TABLE %s"%(table['table_name']))
   #   db.commit()
+  table_count = table_count + 1
   fake_qty = table['fake_qty']
+  
   if(type(fake_qty) == int):
     generateData(table, fake_qty)
   elif(fake_qty[0:10] == "table|each"):
     generateTableEach(table)
 close_db(db)
-print("Data creation complete")
+print("Database population complete created %d tables and %d records"%(table_count, row_count))

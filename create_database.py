@@ -1,5 +1,6 @@
 import json
 from database_connection import connect_db, close_db
+print("Creating database")
 db = connect_db()
 cursor = db.cursor()
 
@@ -68,6 +69,7 @@ def formatType(field):
 def create_db(db_name, drop=False):
 
   #Drop the database if drop == True
+ 
   if(drop):
     cursor.execute("DROP DATABASE IF EXISTS %s"%(db_name))
     db.commit()
@@ -103,5 +105,5 @@ def create_db(db_name, drop=False):
     cursor.execute(sql)
     db.commit()
 
-create_db(tables['database_name'], drop=tables['drop'])
-close_db(db)
+#create_db(tables['database_name'], drop=tables['drop'])
+

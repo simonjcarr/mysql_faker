@@ -9,15 +9,16 @@ def connect_db():
       passwd="password",
       # database="bae_faker"
     )
-    print("Connected to database")
+    #print("Connected to database server")
     return db
   except:
     return False
 
 def close_db(db):
   try:
+    
     db.close()
-    print("Database connection closed")
+    #print("Database server connection closed")
     return True
   except:
     return False
