@@ -6,7 +6,7 @@ def connect_db():
     db = mysql.connector.connect (
       host="127.0.0.1",
       user="root",
-      passwd="",
+      passwd="password",
     )
     #print("Connected to database server")
     return db

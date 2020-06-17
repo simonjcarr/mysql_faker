@@ -140,9 +140,9 @@ The most simple example of the json structure that tables.json needs to contain 
 
 Details of each section of the JSON
 
-1. A database called ```web_site``` that will be dropped if it already exists.
-2. An array of tables is defined. In this example a single table called ```users``` will be generated.
-3. 300 records will be generated using fake data
+1. A database called ```web_site``` (database_name) that will be dropped (drop) if it already exists.
+2. An array of tables is defined. In this example a single table called ```users``` (name) will be generated.
+3. 300 records will be generated using fake data (fake_qty)
 4. An array of objects representing fields is provided. 
    - **name**: Name of the field. `String`
    - **type**: Uses mysql names i.e. INT, VARCHAR, DATE etc. `String`
@@ -192,36 +192,173 @@ While others are used as control commands to get random data or create relations
 
 `table|vendors|random|id`
 
-## List of custom commands
+# List of custom commands
 
-### random_number
+### `random_number(start_date, end_date, prec=0)`
 Produces a random number between two numbers and to a certain decimal place.
 - random_number(start, end, prec=0)
    - [start] The minimum value i.e. 10
    - [end] The maximum value i.e. 100
-   - [prec] (Precision) the number of decimal places. i.e. `2` =>  `67.34`, `3` => `67.342`, `0` => `67`
+   - [prec] (Precision) (Default: 0) the number of decimal places. i.e. `2` =>  `67.34`, `3` => `67.342`, `0` => `67`
 
 Returns: `Int` or `Float`
 
-### engineering_words
+### `engineering_words(numWords=3)`
 Produces random engineering words.
 - engineering_words(numWords=3)
-   - [numWords] The number of words to return
+   - [numWords] (Default: 3) The number of words to return
 
 Returns: `String`
 
-### date_greater_than_field
+### `date_greater_than_field(field_name, max_date="today")`
 Produces a date greater than that contained in another field, in the same record. This command requires that the other field has already been defined before the field that contains this command.
-- date_greater_than_field(field_name)
+- date_greater_than_field(field_name, max_date)
    - [field_name] The other field, that this date should be greater than
+   - [max_date] (Default: 'today'). The date generated will be less than or equal to this date. 
+   
+   The value of `max_date` should either be parsable by strtotime i.e. "-1y" for minus 1 year, or an absolute date can be given, in which case it should be prepended with `date:` i.e. `date:2020-12-22` and the date format should be in ISO 8601 format (%Y-%m-%d)
+   
+   If `max_date` is less than the date held in `field_name`, the value of `max_date` will be returned. 
 
-### date_less_than_field
+### `date_less_than_field(field_name, min_date="-1y")`
 Produces a date less than that contained in another field, in the same record. This command requires that the other field has already been defined before the field that contains this command.
-- date_less_than_field(field_name)
+- date_less_than_field(field_name, min_date)
    - [field_name] The other field, that this date should be less than
+   - [min_date] (Default: '-1y'). The date generated will be greater than or equal to the value of `field_name` minus this date. The value of `min_date` should be parsable by strtotime i.e. ('today', '+1y', '-2m' etc)
 
-## List of control commands
+### `date_between(start_date, end_date)`
+Produces a date between `start_date` and `end_date`
+- [start_date]
+
+### `number_greater_than_field(field_name, max=100)`
+Produces a number that is greater than the value of the number held in `field_name` and less than the value of `field_name` plus `max`
+- number_greater_than_field(field_name, max)
+   - [field_name] The other field, that this number should be greater than
+   - [max] (Default: 100) The number generated will be less than or equal to the value of `field_name` plus the value of `max`
+
+### `number_less_than_field(field_name, min=100, allow_negative=False)`
+Produces a number that is greater than the value of the number held in `field_name` and less than the value of `field_name` plus `max`
+- number_greater_than_field(field_name, max)
+   - [field_name] The other field, that this number should be greater than
+   - [min] (Default: 100) The number generated will be less than or equal to the value of `field_name` minus the value of `min`
+   - [allow_negative] (Default: False) If True negative values will be allowed. If False (Default) the minimum value returned will be 0
+
+# List of control commands
+
+Control commands, allow data to be fetched from any other table (see note i. below) or to be used in conjunction with the relational commands provided in the `fake_qty` definition of the table.
+
+>i. _When using a control command to pull data from another table, the other table must have already been created, so it's important to think about how you design your data definition. I'm looking to remove this restriction at a later date._
+
+## Example
+It is much easier to explain the use of control commands through an example.
+
+Lets assume we already have a `purchase_orders` table and we want to create a `purchase_order_lines` table. Each purchase order could have multiple purchase order lines. 
+
+In this scenario, we want to create a random number of purchase order lines (say between 1 and 20). Each purchase order line should have a reference to the `purchase_order` number of it's parent related record. Each line should also have a reference to a random part number from an `items` table.
+
+Here is the JSON for the `purchase_order_lines` table
+
+```
+{
+      "name": "purchase_order_lines",
+      "fake_qty": "table|each|purchase_orders|1|20",
+      "fields": [
+        {
+          "name": "id",
+          "type": "int",
+          "size": 11,
+          "ai": true,
+          "null": false,
+          "pk": true,
+          "index": false,
+          "default": "",
+          "fake": null
+        },
+        {
+          "name": "purchase_order",
+          "type": "varchar",
+          "size": 11,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "each|purchase_order", "percent": 1}
+          ]
+        },
+        {
+          "name": "item",
+          "type": "varchar",
+          "size": 200,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "table|items|random|part_number", "percent": 1}
+          ]
+        },
+        {
+          "name": "qty",
+          "type": "int",
+          "size": 6,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "random_number(1,200,0)", "percent": 1}
+          ]
+        }
+```
 
 
+### fake_qty
+#### table|each|purchase_orders|1|20
 
+`"fake_qty": "table|each|purchase_orders|1|20"`
+Rather than specifying a specific number of records, we want to take each record from the `purchase_orders` table and generate a random qty of records (between `1` and `20` in this case) in the `purchase_order_lines` table. This gives us a one to many relationship
 
+If we only wanted to generate a single row for each row in `purchase_orders` we just remove the min and max records like this `table|each|purchase_orders`. This would give us a one to one relationship.
+
+### command
+
+#### each|purchase_order
+```
+{
+          "name": "purchase_order",
+          "type": "varchar",
+          "size": 11,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "each|purchase_order", "percent": 1}
+          ]
+        }
+```
+In the `purchase_order` field definition we use the `each` control command. This will take the value of field provided after the `|` from the table that we are looping over. In this case the `purchase_order` field in the `purchase_order` table, and will use that as the value for the `purchase_order` field in the table we are generating (`purchase_order_lines`). This will give us a relationship between the data in the two tables.
+
+#### table|items|random|part_number
+
+```
+{
+          "name": "item",
+          "type": "varchar",
+          "size": 200,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "table|items|random|part_number", "percent": 1}
+          ]
+        }
+```
+In the `item` table we get a random `part_number` from the `items` table. This is a new random `part_number` for each row in `purchase_order_lines`

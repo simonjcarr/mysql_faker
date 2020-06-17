@@ -422,7 +422,7 @@
           "index": false,
           "default": "",
           "fake": [
-            {"command": "date_greater_than_field('purchase_order_date')", "percent": 1}
+            {"command": "date_less_than_field('purchase_order_date', 'date:2018-12-22')", "percent": 1}
           ]
         },
         {
@@ -435,7 +435,7 @@
           "index": false,
           "default": "",
           "fake": [
-            {"command": "date_greater_than_field('confirmed_date')", "percent": 1}
+            {"command": "date_greater_than_field('purchase_order_date')", "percent": 1}
           ]
         }
       ]

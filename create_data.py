@@ -11,6 +11,8 @@ import collections
 import sys
 import time
 from datetime import datetime
+from datetime import timedelta
+from datetime import date
 try:
     from collections import OrderedDict
 except ImportError:
@@ -70,12 +72,60 @@ def getRecordFromTable(command):
     #todo get last record in table
     pass
 
-def date_greater_than_field(field_name):
-  startDate = datetime.strptime(row_data[field_name].strip('"'), "%Y-%m-%d")
-  startDays = abs((startDate - datetime.now()).days)
-  dateObj = fake.date_between(start_date="-"+str(startDays)+"days", end_date='today')
+def date_greater_than_field(field_name, max_date='today'):
+  #@TODO If value of max_date is less than field_name return field_name value
+  start_date = datetime.strptime(row_data[field_name].strip('"'), "%Y-%m-%d")
+  #Check if an absolute date has been given by prepending with 'date:' or a string date i.e. +1y
+  
+  if(str(max_date)[0:5] != 'date:'):
+    end_date = fake.date_between(max_date, max_date)
+  else:
+    end_date = datetime.strptime(max_date[5:], "%Y-%m-%d")
+  
+  #Get the random date
+  try:
+    dateObj = fake.date_between_dates(start_date, end_date)
+  except:
+    #An exception will usually be caused by max_date being less than the value 
+    #of field_name. In this case we just return end_date
+    dateObj = end_date
+  #Format the date for use in MySQL
   mysqlDate = dateObj.strftime('%Y-%m-%d')
   return str(mysqlDate)
+
+def get_offset_days_from_strtotime(offset_string):
+  #offset_string should look like -1y, +1y, -2w, +1m etc 
+  try:
+    offset_date = fake.date_between(offset_string, 'today')
+  except:
+    offset_date = fake.date_between('today', offset_string)
+  today = date.today()
+  offset = offset_date - today
+  return offset.days
+
+def get_offset_days_from_date(offset_date):
+  today = date.today()
+  offset = offset_date - today
+  return offset.days
+  
+
+def date_less_than_field(field_name, min_date='-1y'):
+  
+  #@TODO If value of max_date is less than field_name return field_name value
+  end_date = datetime.strptime(row_data[field_name].strip('"'), "%Y-%m-%d")
+  #Check if an absolute date has been given by prepending with 'date:' or a string date i.e. +1y
+  
+  if(str(min_date)[0:5] != 'date:'):
+    #Start date should be field_name - -1y
+    offset_days = get_offset_days_from_strtotime(min_date)
+    start_date = end_date - timedelta(days=abs(offset_days))
+  else:
+    start_date_ref = datetime.strptime(min_date[5:], "%Y-%m-%d").date()
+  try:
+    calculated_date = fake.date_between(start_date_ref, end_date)
+  except:
+    calculated_date = start_date_ref
+  return calculated_date.strftime('%Y-%m-%d')
 
 def number_greater_than_field(field_name, max=100):
   field_value = row_data[field_name]
@@ -89,7 +139,7 @@ def number_greater_than_field(field_name, max=100):
       sys.exit()
   return random_number(field_value, max, 0 if type(field_value) is int else 2)
 
-def number_less_than_field(field_name, min=0):
+def number_less_than_field(field_name, min=0, allow_negative=False):
   field_value = row_data[field_name]
   if(field_value == min):
     return field_value
@@ -99,7 +149,11 @@ def number_less_than_field(field_name, min=0):
     except Exception as e:
       print("Error in get_number_greater_than_field: %s"%(e))
       sys.exit()
-  return random_number(min, field_value, 0 if type(field_value) is int else 2)
+  number = random_number(min, field_value, 0 if type(field_value) is int else 2)
+  #check if number is negative and allow_negative is False
+  if(number < 0 and not allow_negative):
+    number = 0
+  return number
 
 def date_between(start_date, end_date):
   dateObj = fake.date_between(start_date, end_date)
