@@ -141,6 +141,19 @@
           ]
         },
         {
+          "name": "parent_item",
+          "type": "int",
+          "size": 4,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake": [
+            {"command": "each|level", "percent": 1}
+          ]
+        },
+        {
           "name": "description",
           "type": "longtext",
           "size": null,

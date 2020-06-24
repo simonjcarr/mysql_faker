@@ -362,3 +362,168 @@ In the `purchase_order` field definition we use the `each` control command. This
         }
 ```
 In the `item` table we get a random `part_number` from the `items` table. This is a new random `part_number` for each row in `purchase_order_lines`
+
+### BOM (Bill of Material)
+MySQL Faker allows you to create a structured Bill of Material (BOM)
+
+The number of BOM's, the maximum items in each BOM and the maximum levels each BOM go down to are configurable.
+
+#### example
+#### BOM|each|purchase_orders|1|20
+
+`"fake_qty": "BOM|10|1000|10"`
+
+This will create a table that contains 10 Assemblies, each with a maximum of 1000 child items and a maximum of 10 levels deep.
+
+each item that is generated for the BOM contains 3 pieces of meta data that can be accessed
+* item
+* parent_item
+* level
+
+Each piece of meta data can be accessed using the `each` command
+
+```python
+"fake": [
+            {"command": "each|parent_item", "percent": 1}
+          ]
+```
+
+An full example of a part number items table that is created using a BOM is shown below
+
+```json
+,
+    {
+      "name": "items",
+      "fake_qty": "BOM|10|1000|10", 
+      "fields": [
+        {
+          "name": "id",
+          "type": "int",
+          "size": true,
+          "ai": true,
+          "null": false,
+          "pk": true,
+          "index": false,
+          "default": "",
+          "fake": null
+        },
+        {
+          "name": "name",
+          "type": "varchar",
+          "size": 50,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "engineering_words(3)", "percent": 1}
+          ]
+        },
+        {
+          "name": "part_number",
+          "type": "varchar",
+          "size": 50,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake": [
+            {"command": "each|item", "percent": 1}
+          ]
+        },
+        {
+          "name": "parent_item",
+          "type": "varchar",
+          "size": 50,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake": [
+            {"command": "each|parent_item", "percent": 1}
+          ]
+        },
+        {
+          "name": "parent_item",
+          "type": "int",
+          "size": 4,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake": [
+            {"command": "each|level", "percent": 1}
+          ]
+        },
+        {
+          "name": "description",
+          "type": "longtext",
+          "size": null,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "engineering_words(random.randint(5,12))", "percent": 1}
+          ]
+        },
+        {
+          "name": "legnth",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "random_number(1,100,2)", "percent": 1}
+          ]
+        },
+        {
+          "name": "height",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "random_number(1,100,2)", "percent": 1}
+          ]
+        },
+        {
+          "name": "width",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "random_number(1,100,2)", "percent": 1}
+          ]
+        },
+        {
+          "name": "weight",
+          "type": "float",
+          "size": "6,2",
+          "ai": false,
+          "null": true,
+          "pk": false,
+          "index": false,
+          "default": "",
+          "fake": [
+            {"command": "random_number(1,100,2)", "percent": 1}
+          ]
+        }
+      ]
+    }
+```

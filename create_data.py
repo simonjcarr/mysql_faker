@@ -150,7 +150,6 @@ def get_offset_days_from_date(offset_date):
   offset = offset_date - today
   return offset.days
   
-
 def date_less_than_field(field_name, min_date='-1y'):
   
   #@TODO If value of max_date is less than field_name return field_name value
@@ -279,7 +278,6 @@ def getTableRecordCount(table):
   cursor.execute("select count(*) as record_count from %s"%(table))
   result = cursor.fetchall()
   return result[0]['record_count']
-
 
 def generateTableEach(table):
   #Get table name
