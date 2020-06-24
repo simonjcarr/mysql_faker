@@ -322,6 +322,7 @@ cursor.execute("USE %s"%(fakeData['database_name']))
 print("Populating database with fake data")
 
 for table in fakeData['tables']:
+  print("Processing table %s"%(table['name']))
   # if(table['truncate']):
   #   cursor.execute("TRUNCATE TABLE %s"%(table['table_name']))
   #   db.commit()
