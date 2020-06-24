@@ -88,7 +88,7 @@
     },
     {
       "name": "items",
-      "fake_qty": "BOM|400|1000|10", 
+      "fake_qty": "BOM|10|1000|10", 
       "fields": [
         {
           "name": "id",
