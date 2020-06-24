@@ -13,6 +13,7 @@ import time
 from datetime import datetime
 from datetime import timedelta
 from datetime import date
+import os
 try:
     from collections import OrderedDict
 except ImportError:
@@ -38,6 +39,47 @@ row_data = {}
 def clearTable(table_name):
   cursor.execute("TRUNCATE TABLE %s"%(table_name))
   db.commit()
+
+def generateBOM(table, command):
+  # BOM|qty_ASO|min_children|max_children|min_levels|max_levels
+  #Get the command values
+  commands = command.split("|")
+  aso_qty = int(commands[1])
+  #Maximum child parts each ASO should have
+  max_children = int(commands[2])
+  #Maximum levels each BOM should have
+  max_levels = int(commands[3])
+  #Generate ASO top level parts
+  for _ in range(aso_qty):
+    aso_items = []
+    #Generate a fake ASO part number
+    aso_item = {"parent_item": "", "item": fake.ssn(), "level": 0 }
+    generateData(table, 1, aso_item)
+    # add this top level aso to the list
+    aso_items.append(aso_item)
+    #keep track of the highest level in the BOM we have reached
+    max_level = 1
+    for _ in range(random_number(10, max_children, 0)):
+      #Generate a random BOM level number
+      #if max_level is less than max_levels then maximum random number should be max_level + 1
+      # else maximum random number should be max_levels
+      level = random_number(1, (max_level + 1) if max_level < max_levels else max_levels, 0)
+      if level > max_level:
+        max_level = level
+      #Get random item from ASO list
+      asoListItem = random.choice(aso_items)
+      
+      newLevel = asoListItem['level'] + 1
+      tryCount = 0
+      while newLevel >= max_levels:
+        asoListItem = random.choice(aso_items)
+        newLevel = asoListItem['level'] + 1
+        tryCount = tryCount + 1
+        if(tryCount > 100):
+          sys.exit("could not find a level below or equal to max_aso_levels in over 100 tries")
+      item = { "parent_item": asoListItem['item'], "item": fake.ssn(), "level": newLevel}
+      aso_items.append(item)
+      generateData(table, 1, item)
 
 def random_number(start, end, prec=0):
   number = round(random.uniform(start,end),prec)
@@ -290,5 +332,7 @@ for table in fakeData['tables']:
     generateData(table, fake_qty)
   elif(fake_qty[0:10] == "table|each"):
     generateTableEach(table)
+  elif(fake_qty[0:3] == "BOM"):
+    generateBOM(table, fake_qty)
 close_db(db)
 print("Database population complete created %d tables and %d records"%(table_count, row_count))

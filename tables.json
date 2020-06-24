@@ -88,7 +88,7 @@
     },
     {
       "name": "items",
-      "fake_qty": 300,
+      "fake_qty": "BOM|400|1000|10", 
       "fields": [
         {
           "name": "id",
@@ -124,7 +124,20 @@
           "index": true,
           "default": "",
           "fake": [
-            {"command": "fake.ssn()", "percent": 1}
+            {"command": "each|item", "percent": 1}
+          ]
+        },
+        {
+          "name": "parent_item",
+          "type": "varchar",
+          "size": 50,
+          "ai": false,
+          "null": false,
+          "pk": false,
+          "index": true,
+          "default": "",
+          "fake": [
+            {"command": "each|parent_item", "percent": 1}
           ]
         },
         {
