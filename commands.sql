@@ -1,0 +1,1 @@
+INSERT INTO purchase_orders(purchase_order,purchase_order_date,confirmed_date,promise_date) values (98408326,"2018-07-07","2018-12-22","2018-08-03");

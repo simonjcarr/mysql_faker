@@ -251,11 +251,11 @@ def getFakeData(fake_list, field_name, data=None):
 def generateData(table, qty=1, eachData=None):
   global row_data
   global row_count
+  
   for _ in range(qty):
     row_data = {}
     sql = "INSERT INTO %s"%(table['name'])
     sql = sql + "("
-
     for field in table['fields']:
       field_def = field
       if(field['fake'] == None or type(field['fake']) is not list):
@@ -268,10 +268,10 @@ def generateData(table, qty=1, eachData=None):
         continue
       sql = sql + "" + str(getFakeData(field['fake'], field['name'], eachData)) + ","
     sql = sql[0:-1]
-    sql = sql + ")"
+    sql = sql + ");"
     #print(sql)
-    cursor.execute(sql)
     row_count = row_count + 1
+    cursor.execute(sql)
   db.commit()
 
 def getTableRecordCount(table):

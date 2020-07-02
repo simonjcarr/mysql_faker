@@ -447,7 +447,7 @@ An full example of a part number items table that is created using a BOM is show
           ]
         },
         {
-          "name": "parent_item",
+          "name": "level",
           "type": "int",
           "size": 4,
           "ai": false,
