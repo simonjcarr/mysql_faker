@@ -4,9 +4,9 @@ import mysql.connector
 def connect_db():
   try:
     db = mysql.connector.connect (
-      host="127.0.0.1",
+      host="192.168.10.3",
       user="root",
-      passwd="password",
+      passwd="Pr35t0nTh30",
     )
     #print("Connected to database server")
     return db

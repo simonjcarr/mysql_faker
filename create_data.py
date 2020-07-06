@@ -14,6 +14,16 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import date
 import os
+from websocket import create_connection
+
+ws = create_connection("ws://localhost:3333/adonis-ws")
+ws.send(json.dumps({
+  "t": 1,
+  "d": {"topic": 'job'}
+}))
+
+
+
 try:
     from collections import OrderedDict
 except ImportError:
@@ -36,6 +46,22 @@ cursor = db.cursor(dictionary=True)
 
 words_engineering = []
 row_data = {}
+
+jobData = None
+error = False
+current_table = None
+
+def wsMessage(message, status):
+  global current_table
+  ws.send(json.dumps({
+    "t": 7,
+    "d": {
+      "topic": "job",
+      "event": "message",
+      "data": {"job_id": jobData['job_id'], "user_id": jobData['user_id'], "message": str(message), "status": status, "table": current_table}
+    }
+  }))
+
 def clearTable(table_name):
   cursor.execute("TRUNCATE TABLE %s"%(table_name))
   db.commit()
@@ -203,7 +229,8 @@ def date_between(start_date, end_date):
 
 def getFakeData(fake_list, field_name, data=None):
   global fake_string
-  if(fake_list == None or type(fake_list) is not list):
+  global error
+  if(fake_list == None or type(fake_list) is not list or len(fake_list) == 0):
     return
 
   fake_commands = []
@@ -228,8 +255,10 @@ def getFakeData(fake_list, field_name, data=None):
         #If we can find the data field return the data
         row_data[field_name] = data[field]
         return '"' + str(data[field]) + '"'
-      except:
+      except Exception as e:
+        error = True
         #If we can't find the data field, generate an error message and return an empty string
+        wsMessage("Error: Unable to find specified field '%s' in the data provided"%(field), "error")
         print("Error: Unable to find specified field '%s' in the data provided"%(field))
         return ""
 
@@ -240,39 +269,49 @@ def getFakeData(fake_list, field_name, data=None):
     return "'" + str(value) + "'"
   #We must have a proper faker command. we use eval to generate the data
   #print(fakeString)
-  value = eval(fake_string)
-  if(type(value) is int or type(value) is float):
-    row_data[field_name] = value
-    return value
-  else:
-    row_data[field_name] = "\"%s\""%(value)
-    return "\"%s\""%(value)
+  try:
+    value = eval(fake_string)
+    if(type(value) is int or type(value) is float):
+      row_data[field_name] = value
+      return value
+    elif type(value) is list:
+      value = ' '.join(value)
+      return "\"%s\""%(value)
+    else:
+      row_data[field_name] = "\"%s\""%(value)
+      return "\"%s\""%(value)
+  except Exception as e:
+    error = True
+    wsMessage(e, "error")
 
 def generateData(table, qty=1, eachData=None):
   global row_data
   global row_count
-  
-  for _ in range(qty):
-    row_data = {}
-    sql = "INSERT INTO %s"%(table['name'])
-    sql = sql + "("
-    for field in table['fields']:
-      field_def = field
-      if(field['fake'] == None or type(field['fake']) is not list):
-        continue
-      sql = sql + field['name'] + ","
-    sql = sql[0:-1]
-    sql = sql + ") values ("
-    for field in table['fields']:
-      if(field['fake'] == None or type(field['fake']) is not list):
-        continue
-      sql = sql + "" + str(getFakeData(field['fake'], field['name'], eachData)) + ","
-    sql = sql[0:-1]
-    sql = sql + ");"
-    #print(sql)
-    row_count = row_count + 1
-    cursor.execute(sql)
-  db.commit()
+  global error
+  try:
+    for _ in range(qty):
+      row_data = {}
+      sql = "INSERT INTO %s"%(table['table_name'])
+      sql = sql + "("
+      for field in table['fields']:
+        field_def = field
+        if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
+          continue
+        sql = sql + field['name'] + ","
+      sql = sql[0:-1]
+      sql = sql + ") values ("
+      for field in table['fields']:
+        if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
+          continue
+        sql = sql + "" + str(getFakeData(field['fake'], field['name'], eachData)) + ","
+      sql = sql[0:-1]
+      sql = sql + ");"
+      row_count = row_count + 1
+      cursor.execute(sql)
+    db.commit()
+  except Exception as e:
+    error = True
+    wsMessage(e, "error")
 
 def getTableRecordCount(table):
   cursor.execute("select count(*) as record_count from %s"%(table))
@@ -308,30 +347,37 @@ def generateTableEach(table):
         qty = start_qty
       generateData(table, qty, record)
 
-#populate the database tables with data using faker
-with open("./tables.json") as f:
-  fakeData = json.load(f)
+def run(fakeData, job, sema):
+  global jobData
+  jobData = job
+  global table_count
+  global row_count
+  global error
+  global current_table
 
-#Create database
-create_db(fakeData['database_name'], True)
-
-#Use database
-cursor.execute("USE %s"%(fakeData['database_name']))
-print("Populating database with fake data")
-
-for table in fakeData['tables']:
-  print("Processing table %s"%(table['name']))
-  # if(table['truncate']):
-  #   cursor.execute("TRUNCATE TABLE %s"%(table['table_name']))
-  #   db.commit()
-  table_count = table_count + 1
-  fake_qty = table['fake_qty']
+  try:
+    #Create database
+    create_db(fakeData, True)
+    wsMessage("Created database %s"%(fakeData['database_name']), "running")
+    #Use database
+    cursor.execute("USE %s"%(fakeData['database_name']))
+    
+    for table in fakeData['tables']:
+      current_table = table['table_name']
+      if error == True:
+        wsMessage("Ending job run due to error, see logs above for more details.", "error")
+        return
+      wsMessage("Processing table %s"%(table['table_name']), "running")
+      table_count = table_count + 1
+      fake_qty = table['fake_qty']
+      if(type(fake_qty) == int):
+        generateData(table, fake_qty)
+      elif(fake_qty[0:10] == "table|each"):
+        generateTableEach(table)
+      elif(fake_qty[0:3] == "BOM"):
+        generateBOM(table, fake_qty)
+    wsMessage("Database population complete created %d tables and %d records"%(table_count, row_count), "complete")
+    sema.release()
+  except Exception as e:
+    wsMessage(e, "error")
   
-  if(type(fake_qty) == int):
-    generateData(table, fake_qty)
-  elif(fake_qty[0:10] == "table|each"):
-    generateTableEach(table)
-  elif(fake_qty[0:3] == "BOM"):
-    generateBOM(table, fake_qty)
-close_db(db)
-print("Database population complete created %d tables and %d records"%(table_count, row_count))

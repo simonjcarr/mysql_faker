@@ -1,11 +1,11 @@
 import json
 from database_connection import connect_db, close_db
-print("Creating database")
+#print("Creating database")
 db = connect_db()
 cursor = db.cursor()
 
-with open("./tables.json") as f:
-  tables = json.load(f)
+# with open("./tables.json") as f:
+#   tables = json.load(f)
 
 def formatDefault(field):
   if(field['default'] == "" or field['type'].upper() == "TEXT"):
@@ -44,21 +44,21 @@ def formatType(field):
   else:
     addSize = False
 
-  strType = field['type']
+  strType = field['data_type']
 
-  if(field['type'].upper() == 'VARCHAR'):
+  if(field['data_type'].upper() == 'VARCHAR'):
     strType = "VARCHAR"
 
-  if(field['type'].upper() == 'TEXT'):
+  if(field['data_type'].upper() == 'TEXT'):
     strType = "TEXT"
 
-  if( field['type'].upper() == 'INT'):
+  if( field['data_type'].upper() == 'INT'):
     strType = "INT"
 
-  if(field['type'].upper() == 'FLOAT'):
+  if(field['data_type'].upper() == 'FLOAT'):
     strType = "FLOAT"
 
-  if(field['type'].upper() == 'DATETIME'):
+  if(field['data_type'].upper() == 'DATETIME'):
     strType = 'DATETIME'
 
   if(addSize):
@@ -66,14 +66,13 @@ def formatType(field):
 
   return strType
 
-def create_db(db_name, drop=False):
-
+def create_db(fake_data, drop=False):
+  db_name = fake_data['database_name']
   #Drop the database if drop == True
  
   if(drop):
     cursor.execute("DROP DATABASE IF EXISTS %s"%(db_name))
     db.commit()
-
   #Create the database
   try:
     cursor.execute("CREATE DATABASE IF NOT EXISTS " + db_name)
@@ -86,11 +85,10 @@ def create_db(db_name, drop=False):
   #Switch to the new database
   cursor.execute("use " + db_name)
   print("Switching to databse %s " % (db_name))
-
-  for table in tables['tables']:
-    name = table["name"]
+  for table in fake_data['tables']:
+    name = table["table_name"]
     fields = table["fields"]
-    sql = "CREATE TABLE IF NOT EXISTS " + table["name"] + "("
+    sql = "CREATE TABLE IF NOT EXISTS " + table["table_name"] + "("
     for field in table["fields"]:
       sql = sql + "\n"
       sql = sql + field["name"] + " "
