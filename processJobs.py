@@ -4,7 +4,7 @@ from logData import write_log
 from database_connection import connect_db, close_db
 from multiprocessing import Process, Semaphore
 
-concurrency = 3
+concurrency = 1
 
 
 def get_job():

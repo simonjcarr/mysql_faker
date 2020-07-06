@@ -58,7 +58,7 @@ def wsMessage(message, status):
     "d": {
       "topic": "job",
       "event": "message",
-      "data": {"job_id": jobData['job_id'], "user_id": jobData['user_id'], "message": str(message), "status": status, "table": current_table}
+      "data": {"job_id": jobData['job_id'], "user_id": jobData['user_id'], "database_name": jobData['database_name'], "message": str(message), "status": status, "table": current_table}
     }
   }))
 
@@ -366,6 +366,7 @@ def run(fakeData, job, sema):
       current_table = table['table_name']
       if error == True:
         wsMessage("Ending job run due to error, see logs above for more details.", "error")
+        sema.release()
         return
       wsMessage("Processing table %s"%(table['table_name']), "running")
       table_count = table_count + 1
@@ -380,4 +381,5 @@ def run(fakeData, job, sema):
     sema.release()
   except Exception as e:
     wsMessage(e, "error")
+    sema.release()
   
