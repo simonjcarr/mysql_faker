@@ -16,12 +16,7 @@ from datetime import date
 import os
 from websocket import create_connection
 
-ws = create_connection("ws://localhost:3333/adonis-ws")
-ws.send(json.dumps({
-  "t": 1,
-  "d": {"topic": 'job'}
-}))
-
+ws = None
 
 
 try:
@@ -51,7 +46,17 @@ jobData = None
 error = False
 current_table = None
 
+def openWebsocket():
+  global ws
+  ws = create_connection("ws://localhost:3333/adonis-ws")
+  ws.send(json.dumps({
+    "t": 1,
+    "d": {"topic": 'job'}
+  }))
+
+
 def wsMessage(message, status):
+  print(ws)
   global current_table
   ws.send(json.dumps({
     "t": 7,
@@ -348,6 +353,7 @@ def generateTableEach(table):
       generateData(table, qty, record)
 
 def run(fakeData, job, sema):
+  openWebsocket()
   global jobData
   jobData = job
   global table_count
@@ -366,6 +372,7 @@ def run(fakeData, job, sema):
       current_table = table['table_name']
       if error == True:
         wsMessage("Ending job run due to error, see logs above for more details.", "error")
+        ws.close()
         sema.release()
         return
       wsMessage("Processing table %s"%(table['table_name']), "running")
@@ -378,8 +385,10 @@ def run(fakeData, job, sema):
       elif(fake_qty[0:3] == "BOM"):
         generateBOM(table, fake_qty)
     wsMessage("Database population complete created %d tables and %d records"%(table_count, row_count), "complete")
+    ws.close()
     sema.release()
   except Exception as e:
     wsMessage(e, "error")
+    ws.close()
     sema.release()
   
