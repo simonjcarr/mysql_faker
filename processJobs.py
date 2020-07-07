@@ -39,8 +39,6 @@ if __name__ == "__main__":
       job = get_job()
       if not job:
         continue
-      print(job)
-      print(job['job_id'])
       database_id = job['id']
       json_data = get_json(database_id)
       sema.acquire()
@@ -48,8 +46,6 @@ if __name__ == "__main__":
     except Exception as e:
       print("Error in server loop")
       sys.exit(e)
-
-      pass
       
 
 

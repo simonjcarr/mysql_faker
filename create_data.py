@@ -56,7 +56,6 @@ def openWebsocket():
 
 
 def wsMessage(message, status):
-  print(ws)
   global current_table
   ws.send(json.dumps({
     "t": 7,
