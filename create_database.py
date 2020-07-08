@@ -66,6 +66,19 @@ def formatType(field):
 
   return strType
 
+def addIndexes(fields):
+  indexCount = 0
+  indexStr = "INDEX ("
+  for field in fields:
+    if field['index'] == True:
+      indexCount = indexCount + 1
+      indexStr = indexStr + field['name'] + ","
+  if indexCount > 0:
+    indexStr = ", " + indexStr[:-1] + ")"
+  else:
+    indexStr = ""
+  return indexStr
+
 def create_db(fake_data, drop=False):
   db_name = fake_data['database_name']
   #Drop the database if drop == True
@@ -99,6 +112,7 @@ def create_db(fake_data, drop=False):
       sql = sql + formatDefault(field)
       sql = sql + ","
     sql = sql[0:-1]
+    sql = sql + addIndexes(table["fields"])
     sql = sql + ");"
     cursor.execute(sql)
     db.commit()
