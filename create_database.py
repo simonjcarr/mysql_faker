@@ -82,22 +82,23 @@ def addIndexes(fields):
 def create_db(fake_data, drop=False):
   db_name = fake_data['database_name']
   #Drop the database if drop == True
- 
-  if(drop):
-    cursor.execute("DROP DATABASE IF EXISTS %s"%(db_name))
-    db.commit()
+  try:
+    if(drop):
+      cursor.execute("DROP DATABASE IF EXISTS %s"%(db_name))
+      db.commit()
+  except Exception as e:
+    print("error droping database")
+    print(e)
   #Create the database
   try:
     cursor.execute("CREATE DATABASE IF NOT EXISTS " + db_name)
     db.commit()
-    print("Database %s created" % (db_name))
   except Exception as e:
     print("Error creating database: " + str(e))
     return False
 
   #Switch to the new database
   cursor.execute("use " + db_name)
-  print("Switching to databse %s " % (db_name))
   for table in fake_data['tables']:
     name = table["table_name"]
     fields = table["fields"]

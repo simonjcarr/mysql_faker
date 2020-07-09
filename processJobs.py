@@ -4,7 +4,7 @@ from logData import write_log
 from database_connection import connect_db, close_db
 from multiprocessing import Process, Semaphore
 
-concurrency = 1
+concurrency = 2
 
 
 def get_job():
@@ -33,16 +33,21 @@ def get_json(database_id):
 
 if __name__ == "__main__":
   sema = Semaphore(concurrency)
+  number = 0
   while True:
     time.sleep(1)  
     try:
+      # number = number + 1
+      # print("Looping " + str(number))
       job = get_job()
       if not job:
         continue
       database_id = job['id']
       json_data = get_json(database_id)
+      print("acquire Sema")
       sema.acquire()
       Process(target=run, args=(json_data, job, sema)).start()
+      
     except Exception as e:
       print("Error in server loop")
       sys.exit(e)

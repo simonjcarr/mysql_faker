@@ -13,8 +13,10 @@ import time
 from datetime import datetime
 from datetime import timedelta
 from datetime import date
-import os
+import os, shutil
 from websocket import create_connection
+import csv
+from dicttoxml import dicttoxml
 
 ws = None
 
@@ -56,7 +58,6 @@ def openWebsocket():
 
 
 def wsMessage(message, status):
-  print(jobData)
   global current_table
   ws.send(json.dumps({
     "t": 7,
@@ -352,6 +353,108 @@ def generateTableEach(table):
         qty = start_qty
       generateData(table, qty, record)
 
+
+def writeDatabaseRecordsToCSV(records, export, folder):
+  wsMessage("Generating export file %s"%(export['file_name']),'success')
+  try:
+    with open(os.path.join(folder, export['file_name']), "w") as f:
+      w = csv.DictWriter(f, records[0].keys())
+      w.writerow(dict((fn,fn) for fn in records[0].keys()))
+      w.writerows(records)
+  except Exception as e:
+    wsMessage("Error generating file %s"%(export['file_name']), 'error')
+    wsMessage(e,'error')
+
+def writeDatabaseRecordsToXML(records, export, folder):
+  wsMessage("Generating export file %s"%(export['file_name']),'success')
+  try:
+    xml = dicttoxml(records)
+    with open(os.path.join(folder, export['file_name']), "wb") as f:
+      f.write(xml)
+  except Exception as e:
+    wsMessage("Error generating file %s"%(export['file_name']), 'error')
+    wsMessage(e,'error')
+
+def writeDatabaseRecordsToMySQL(records, export, folder):
+  wsMessage("Generating export file %s"%(export['file_name']),'success')
+  try:
+    for record in records:
+      values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in record.values())
+      columns = ', '.join(record.keys())
+      sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (export['sql_insert_table'], columns, values)
+      with open(os.path.join(folder, export['file_name']), "a") as f:
+        f.write(sql + "\n")
+  except Exception as e:
+    wsMessage("Error generating file %s"%(export['file_name']), 'error')
+    wsMessage(e,'error')
+
+def exportTable(export, job, folder):
+  try:
+    cursor.execute("use %s"%(job['database_name']))
+    cursor.execute("select * from %s"%(export['table_name']))
+    records = cursor.fetchall()
+    if export['format'] == 'csv':
+      writeDatabaseRecordsToCSV(records, export, folder)
+    elif export['format'] == 'xml':
+      writeDatabaseRecordsToXML(records, export, folder)
+    elif export['format'] == 'mysql':
+      writeDatabaseRecordsToMySQL(records, export, folder)
+    wsMessage('Exported table %s to file %s'%(export['table_name'], export['file_name']), 'success')
+  except Exception as e:
+    wsMessage(e, 'error')
+
+def exportSQL(export, job, folder):
+  try:
+    cursor.execute("use %s"%(job['database_name']))
+    cursor.execute(export['sql'])
+    records = cursor.fetchall()
+    if export['format'] == 'csv':
+      writeDatabaseRecordsToCSV(records, export, folder)
+    elif export['format'] == 'xml':
+      writeDatabaseRecordsToXML(records, export, folder)
+    elif export['format'] == 'mysql':
+      writeDatabaseRecordsToMySQL(records, export, folder)
+    wsMessage('Exported SQL Result to file %s'%(export['file_name']), 'success')
+  except Exception as e:
+    wsMessage(e, 'error')
+
+def createExportFolder(job):
+  folder = "export_db_%s"%(job['database_name'])
+  try:
+    os.mkdir(folder)
+    return folder
+  except Exception as e:
+    return folder
+
+def clearExportFolder(folder):
+    for filename in os.listdir(folder):
+      file_path = os.path.join(folder, filename)
+      try:
+        if os.path.isfile(file_path) or os.path.islink(file_path):
+          os.unlink(file_path)
+        elif os.path.isdir(file_path):
+          shutil.rmtree(file_path)
+      except Exception as e:
+        wsMessage("Failed to clear export folder", "error")
+
+
+def processExports(job):
+  try:
+    database_id = job['id']
+    cursor.execute("use faker;")
+    cursor.execute("select * from `exports` e left join tbls t on t.id = e.tbl_id where e.database_id = %d;"%(database_id))
+    exports = cursor.fetchall()
+    folder = createExportFolder(job)
+    clearExportFolder(folder)
+    for export in exports:
+      if export['tbl_id'] is not None:
+        exportTable(export, job, folder)
+      else:
+        pass
+        #exportSQL(export, job, folder)
+  except Exception as e:
+    wsMessage(e, 'error')
+
 def run(fakeData, job, sema):
   openWebsocket()
   global jobData
@@ -384,9 +487,15 @@ def run(fakeData, job, sema):
         generateTableEach(table)
       elif(fake_qty[0:3] == "BOM"):
         generateBOM(table, fake_qty)
+    
+    #Process exports
+    processExports(job)
+    cursor.execute("use faker;")
+    db.commit()
     wsMessage("Database population complete created %d tables and %d records"%(table_count, row_count), "complete")
     ws.close()
     sema.release()
+
   except Exception as e:
     wsMessage(e, "error")
     ws.close()
