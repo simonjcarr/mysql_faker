@@ -56,13 +56,14 @@ def openWebsocket():
 
 
 def wsMessage(message, status):
+  print(jobData)
   global current_table
   ws.send(json.dumps({
     "t": 7,
     "d": {
       "topic": "job",
       "event": "message",
-      "data": {"job_id": jobData['job_id'], "user_id": jobData['user_id'], "database_name": jobData['database_name'], "message": str(message), "status": status, "table": current_table}
+      "data": {"database_id": jobData['id'], "job_id": jobData['job_id'], "user_id": jobData['user_id'], "database_name": jobData['database_name'], "message": str(message), "status": status, "table": current_table}
     }
   }))
 
