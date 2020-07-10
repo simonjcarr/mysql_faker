@@ -44,7 +44,6 @@ if __name__ == "__main__":
         continue
       database_id = job['id']
       json_data = get_json(database_id)
-      print("acquire Sema")
       sema.acquire()
       Process(target=run, args=(json_data, job, sema)).start()
       
