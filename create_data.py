@@ -450,8 +450,7 @@ def processExports(job):
       if export['tbl_id'] is not None:
         exportTable(export, job, folder)
       else:
-        pass
-        #exportSQL(export, job, folder)
+        exportSQL(export, job, folder)
   except Exception as e:
     wsMessage(e, 'error')
 
