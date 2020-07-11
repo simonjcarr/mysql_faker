@@ -17,6 +17,8 @@ import os, shutil
 from websocket import create_connection
 import csv
 from dicttoxml import dicttoxml
+import urllib.request
+import urllib.parse
 
 ws = None
 
@@ -38,8 +40,8 @@ fake.add_provider(internet)
 fake.add_provider(phone_number)
 fake.add_provider(company)
 
-db = connect_db()
-cursor = db.cursor(dictionary=True)
+
+
 
 words_engineering = []
 row_data = {}
@@ -57,20 +59,23 @@ def openWebsocket():
   }))
 
 
-def wsMessage(message, status):
+def wsMessage(message, status, message_type="log"):
   global current_table
   ws.send(json.dumps({
     "t": 7,
     "d": {
       "topic": "job",
       "event": "message",
-      "data": {"database_id": jobData['id'], "job_id": jobData['job_id'], "user_id": jobData['user_id'], "database_name": jobData['database_name'], "message": str(message), "status": status, "table": current_table}
+      "data": {"database_id": jobData['id'], "job_id": jobData['job_id'], "user_id": jobData['user_id'], "database_name": jobData['database_name'], "message": str(message), "status": status, "table": current_table, "message_type": message_type}
     }
   }))
 
 def clearTable(table_name):
+  db = connect_db()
+  cursor = db.cursor(dictionary=True)
   cursor.execute("TRUNCATE TABLE %s"%(table_name))
   db.commit()
+  db.close()
 
 def generateBOM(table, command):
   # BOM|qty_ASO|min_children|max_children|min_levels|max_levels
@@ -128,15 +133,18 @@ def engineering_words(numWords=3):
   words = random.sample(words_engineering, numWords)
   return ' '.join(words)
 
-def getRecordFromTable(command):
+def getRecordFromTable(command, database_name):
   commands = command.split("|")
   table = commands[1]
   field = commands[3]
-
+  db = connect_db()
+  cursor = db.cursor(dictionary=True)
+  cursor.execute("use %s;"%(database_name))
   if(str(commands[2]).lower() == 'random'):
     #Get a random record
     cursor.execute("SELECT %s FROM %s ORDER BY RAND() LIMIT 1"%(field, table))
     record = cursor.fetchone()
+    db.close()
     return record[field]
 
   if(str(commands[2]).lower() == 'first'):
@@ -233,7 +241,7 @@ def date_between(start_date, end_date):
   mysqlDate = dateObj.strftime('%Y-%m-%d')
   return str(mysqlDate)
 
-def getFakeData(fake_list, field_name, data=None):
+def getFakeData(fake_list, field_name, database_name, data=None):
   global fake_string
   global error
   if(fake_list == None or type(fake_list) is not list or len(fake_list) == 0):
@@ -270,7 +278,7 @@ def getFakeData(fake_list, field_name, data=None):
 
   if(str(fake_string[0:5]).lower() == 'table'):
     #Get data from a table
-    value = getRecordFromTable(fake_string)
+    value = getRecordFromTable(fake_string, database_name)
     row_data[field_name] = value
     return "'" + str(value) + "'"
   #We must have a proper faker command. we use eval to generate the data
@@ -290,10 +298,13 @@ def getFakeData(fake_list, field_name, data=None):
     error = True
     wsMessage(e, "error")
 
-def generateData(table, qty=1, eachData=None):
+def generateData(table, database_name, qty=1, eachData=None):
   global row_data
   global row_count
   global error
+  db = connect_db()
+  cursor = db.cursor(dictionary=True)
+  cursor.execute("use %s;"%(database_name))
   try:
     for _ in range(qty):
       row_data = {}
@@ -309,30 +320,39 @@ def generateData(table, qty=1, eachData=None):
       for field in table['fields']:
         if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
           continue
-        sql = sql + "" + str(getFakeData(field['fake'], field['name'], eachData)) + ","
+        sql = sql + "" + str(getFakeData(field['fake'], field['name'], database_name, eachData)) + ","
       sql = sql[0:-1]
       sql = sql + ");"
       row_count = row_count + 1
       cursor.execute(sql)
     db.commit()
+    db.close()
   except Exception as e:
+    db.close()
     error = True
     wsMessage(e, "error")
 
-def getTableRecordCount(table):
+def getTableRecordCount(table, database_name):
+  db = connect_db()
+  cursor = db.cursor(dictionary=True)
+  cursor.execute("use %s;"%(database_name))
   cursor.execute("select count(*) as record_count from %s"%(table))
   result = cursor.fetchall()
+  db.close()
   return result[0]['record_count']
 
-def generateTableEach(table):
+def generateTableEach(table, database_name):
   #Get table name
   commands = table['fake_qty'].split("|")
   table_name = commands[2]
   
   #Get number of records from table
-  record_count = getTableRecordCount(table_name)
+  record_count = getTableRecordCount(table_name, database_name)
   itter_count = 0
   limit = 500
+  db = connect_db()
+  cursor = db.cursor(dictionary=True)
+  cursor.execute("use %s;"%(database_name))
   for offset in range(0, record_count-1,limit):
     cursor.execute("select * from %s limit %d offset %d"%(table_name,limit,offset))
     records = cursor.fetchall()
@@ -351,7 +371,21 @@ def generateTableEach(table):
         qty = random_number(int(start_qty), int(end_qty), 0)
       else:
         qty = start_qty
-      generateData(table, qty, record)
+      generateData(table, database_name, qty, record)
+  db.close()
+
+def recordFileInDB(folder, export):
+  try:
+    database_id = export['database_id']
+    export_id = export['id']
+    path = os.path.join(folder, export['file_name'])
+    exporttype = export['format']
+    data = urllib.parse.urlencode({'database_id': database_id, 'export_id': export_id, 'path': path, 'exporttype': exporttype})
+    data = data.encode('ascii')
+    urllib.request.urlopen('http://localhost:3333/api/v1/export/file', data)
+  except Exception as e:
+    wsMessage("Error writing record for file %s to the database"%(export['file_name']), 'error')
+    wsMessage(e,'error')
 
 
 def writeDatabaseRecordsToCSV(records, export, folder):
@@ -361,6 +395,7 @@ def writeDatabaseRecordsToCSV(records, export, folder):
       w = csv.DictWriter(f, records[0].keys())
       w.writerow(dict((fn,fn) for fn in records[0].keys()))
       w.writerows(records)
+      recordFileInDB(folder,export)
   except Exception as e:
     wsMessage("Error generating file %s"%(export['file_name']), 'error')
     wsMessage(e,'error')
@@ -371,6 +406,7 @@ def writeDatabaseRecordsToXML(records, export, folder):
     xml = dicttoxml(records)
     with open(os.path.join(folder, export['file_name']), "wb") as f:
       f.write(xml)
+    recordFileInDB(folder,export)
   except Exception as e:
     wsMessage("Error generating file %s"%(export['file_name']), 'error')
     wsMessage(e,'error')
@@ -381,18 +417,23 @@ def writeDatabaseRecordsToMySQL(records, export, folder):
     for record in records:
       values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in record.values())
       columns = ', '.join(record.keys())
-      sql = "INSERT INTO %s ( %s ) VALUES ( %s )" % (export['sql_insert_table'], columns, values)
+      sql = "INSERT INTO %s ( %s ) VALUES ( %s );" % (export['sql_insert_table'], columns, values)
       with open(os.path.join(folder, export['file_name']), "a") as f:
         f.write(sql + "\n")
+    recordFileInDB(folder,export)
   except Exception as e:
     wsMessage("Error generating file %s"%(export['file_name']), 'error')
     wsMessage(e,'error')
 
-def exportTable(export, job, folder):
+def exportTable(export, job, folder, database_name):
+  db = connect_db()
+  cursor = db.cursor(dictionary=True)
+  cursor.execute("use %s;"%(database_name))
   try:
     cursor.execute("use %s"%(job['database_name']))
     cursor.execute("select * from %s"%(export['table_name']))
     records = cursor.fetchall()
+    db.close()
     if export['format'] == 'csv':
       writeDatabaseRecordsToCSV(records, export, folder)
     elif export['format'] == 'xml':
@@ -402,12 +443,17 @@ def exportTable(export, job, folder):
     wsMessage('Exported table %s to file %s'%(export['table_name'], export['file_name']), 'success')
   except Exception as e:
     wsMessage(e, 'error')
+    db.close()
 
-def exportSQL(export, job, folder):
+def exportSQL(export, job, folder, database_name):
+  db = connect_db()
+  cursor = db.cursor(dictionary=True)
+  cursor.execute("use %s;"%(database_name))
   try:
     cursor.execute("use %s"%(job['database_name']))
     cursor.execute(export['sql'])
     records = cursor.fetchall()
+    db.close()
     if export['format'] == 'csv':
       writeDatabaseRecordsToCSV(records, export, folder)
     elif export['format'] == 'xml':
@@ -417,6 +463,7 @@ def exportSQL(export, job, folder):
     wsMessage('Exported SQL Result to file %s'%(export['file_name']), 'success')
   except Exception as e:
     wsMessage(e, 'error')
+    db.close()
 
 def createExportFolder(job):
   folder = "export_db_%s"%(job['database_name'])
@@ -424,7 +471,7 @@ def createExportFolder(job):
     os.mkdir(folder)
     return folder
   except Exception as e:
-    return folder
+    return os.path.abspath(folder)
 
 def clearExportFolder(folder):
     for filename in os.listdir(folder):
@@ -438,23 +485,44 @@ def clearExportFolder(folder):
         wsMessage("Failed to clear export folder", "error")
 
 
-def processExports(job):
+def processExports(job, database_name):
+  db = connect_db()
+  cursor = db.cursor(dictionary=True)
+  cursor.execute("use faker;")
   try:
+    #Get the database id from the passed in job
     database_id = job['id']
-    cursor.execute("use faker;")
-    cursor.execute("select * from `exports` e left join tbls t on t.id = e.tbl_id where e.database_id = %d;"%(database_id))
+
+    #Get exports to process for the requested database
+    sql = "select e.*, t.table_name from `exports` e left join tbls t on t.id = e.tbl_id where e.database_id = %d and active = 1;"%(database_id)
+    cursor.execute(sql)
     exports = cursor.fetchall()
+
+    #Create a folder for the files to be put int
     folder = createExportFolder(job)
+    
+    #Delete any existing export files from the database
+    cursor.execute("delete from exportfiles where database_id = %d"%(database_id))
+    db.commit()
+    db.close()
+    # Delete any existing files from the filesystem
     clearExportFolder(folder)
+
+    #Process each of the exports 
     for export in exports:
       if export['tbl_id'] is not None:
-        exportTable(export, job, folder)
+        exportTable(export, job, folder, database_name)
       else:
-        exportSQL(export, job, folder)
+        exportSQL(export, job, folder, database_name)
   except Exception as e:
     wsMessage(e, 'error')
 
 def run(fakeData, job, sema):
+  #Connect to Database
+  db = connect_db()
+  cursor = db.cursor(dictionary=True)
+  
+  
   openWebsocket()
   global jobData
   jobData = job
@@ -466,6 +534,7 @@ def run(fakeData, job, sema):
   try:
     #Create database
     create_db(fakeData, True)
+    
     wsMessage("Created database %s"%(fakeData['database_name']), "running")
     #Use database
     cursor.execute("USE %s"%(fakeData['database_name']))
@@ -481,16 +550,16 @@ def run(fakeData, job, sema):
       table_count = table_count + 1
       fake_qty = table['fake_qty']
       if(type(fake_qty) == int):
-        generateData(table, fake_qty)
+        generateData(table, fakeData['database_name'], fake_qty)
       elif(fake_qty[0:10] == "table|each"):
-        generateTableEach(table)
+        generateTableEach(table, fakeData['database_name'])
       elif(fake_qty[0:3] == "BOM"):
         generateBOM(table, fake_qty)
     
     #Process exports
-    processExports(job)
-    cursor.execute("use faker;")
+    processExports(job, fakeData['database_name'])
     db.commit()
+    db.close()
     wsMessage("Database population complete created %d tables and %d records"%(table_count, row_count), "complete")
     ws.close()
     sema.release()

@@ -79,7 +79,7 @@ def addIndexes(fields):
     indexStr = ""
   return indexStr
 
-def create_db(fake_data, drop=False):
+def create_db(fake_data, drop=True):
   db_name = fake_data['database_name']
   #Drop the database if drop == True
   try:
