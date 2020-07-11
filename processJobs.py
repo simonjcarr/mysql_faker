@@ -31,8 +31,6 @@ def get_json(database_id):
   return data
 
 if __name__ == "__main__":
-  sema = Semaphore(concurrency)
-  number = 0
   while True:
     time.sleep(1)  
     try:
@@ -43,13 +41,12 @@ if __name__ == "__main__":
         continue
       database_id = dbJob['id']
       json_data = get_json(database_id)
-      sema.acquire()
-      print("before worker = job")
-      worker = Job(json_data, dbJob, sema)
-      print("after worker = job")
-      print(worker)
+      worker = Job(json_data, dbJob)
       worker.start()
-      worker.join()
+      # sema.acquire()
+      
+      # worker.start()
+      # worker.join()
       #Process(target=worker).start()
       
     except Exception as e:

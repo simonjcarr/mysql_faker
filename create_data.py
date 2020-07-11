@@ -1,3 +1,4 @@
+import threading
 from faker import Faker
 import multiprocessing
 from faker.providers import internet
@@ -27,14 +28,15 @@ random.seed(0)
 fake.add_provider(internet)
 fake.add_provider(phone_number)
 fake.add_provider(company)
-class Job(multiprocessing.Process):
-  def __init__(self, jsonData, jobData, sema):
-    super().__init__()
-    
+maxThreads = 3
+threadLimiter = threading.BoundedSemaphore(maxThreads)
+class Job(threading.Thread):
+  def __init__(self, jsonData, jobData):
+    #super().__init__()
+    threading.Thread.__init__(self)
     self.jsonData = jsonData
     self.fakeData = jsonData
     self.jobData = jobData
-    self.sema = sema
     self.ws = None
     self.table_count = 0
     self.row_count = 0
@@ -484,7 +486,14 @@ class Job(multiprocessing.Process):
 
   def run(self):
     #Connect to Database
+    threadLimiter.acquire()
+    try:
+      self.jobRun()
+    finally:
+      threadLimiter.release()
     
+
+  def jobRun(self):
     self.openWebsocket()
     try:
       #Create database
@@ -499,7 +508,6 @@ class Job(multiprocessing.Process):
         if self.error == True:
           self.wsMessage("Ending job run due to error, see logs above for more details.", "error")
           self.ws.close()
-          self.sema.release()
           return
         self.wsMessage("Processing table %s"%(table['table_name']), "running")
         self.table_count = self.table_count + 1
@@ -516,10 +524,7 @@ class Job(multiprocessing.Process):
       self.jobDB.commit()
       self.wsMessage("Database population complete created %d tables and %d records"%(self.table_count, self.row_count), "complete")
       self.ws.close()
-      self.sema.release()
 
     except Exception as e:
       self.wsMessage(e, "error")
       self.ws.close()
-      self.sema.release()
-    
