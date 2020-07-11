@@ -1,5 +1,6 @@
 import sys, os, time, urllib.request, json
-from create_data import run
+#from create_data import run
+from create_data import Job
 from logData import write_log
 from database_connection import connect_db, close_db
 from multiprocessing import Process, Semaphore
@@ -12,11 +13,11 @@ def get_job():
     cursor.execute("USE faker;")
     
     cursor.execute("SELECT j.id as job_id, d.*  FROM `jobs` j JOIN `databases` d ON d.id = `j`.`database_id` WHERE `j`.`running` = 0 LIMIT 1")
-    job = cursor.fetchone()
-    if job:
-      cursor.execute("UPDATE `jobs` SET `running` = 1 WHERE `id` = %d"%(job['job_id']))
+    dbJob = cursor.fetchone()
+    if dbJob:
+      cursor.execute("UPDATE `jobs` SET `running` = 1 WHERE `id` = %d"%(dbJob['job_id']))
       db.commit()
-      return job
+      return dbJob
     else:
       return None
   except Exception as e:
@@ -30,20 +31,23 @@ def get_json(database_id):
   return data
 
 if __name__ == "__main__":
-  sema = Semaphore(concurrency)
-  number = 0
   while True:
     time.sleep(1)  
     try:
       # number = number + 1
       # print("Looping " + str(number))
-      job = get_job()
-      if not job:
+      dbJob = get_job()
+      if not dbJob:
         continue
-      database_id = job['id']
+      database_id = dbJob['id']
       json_data = get_json(database_id)
-      sema.acquire()
-      Process(target=run, args=(json_data, job, sema)).start()
+      worker = Job(json_data, dbJob)
+      worker.start()
+      # sema.acquire()
+      
+      # worker.start()
+      # worker.join()
+      #Process(target=worker).start()
       
     except Exception as e:
       print("Error in server loop")
