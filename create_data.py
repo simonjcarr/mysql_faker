@@ -1,4 +1,5 @@
 from faker import Faker
+import multiprocessing
 from faker.providers import internet
 from faker.providers import phone_number
 from faker.providers import company
@@ -19,19 +20,6 @@ import csv
 from dicttoxml import dicttoxml
 import urllib.request
 import urllib.parse
-
-ws = None
-
-
-try:
-    from collections import OrderedDict
-except ImportError:
-    OrderedDict = dict
-
-table_count = 0
-row_count = 0
-fake_string = ""
-
 fake = Faker()
 seed = 0
 Faker.seed(seed)
@@ -39,533 +27,499 @@ random.seed(0)
 fake.add_provider(internet)
 fake.add_provider(phone_number)
 fake.add_provider(company)
+class Job(multiprocessing.Process):
+  def __init__(self, jsonData, jobData, sema):
+    super().__init__()
+    
+    self.jsonData = jsonData
+    self.fakeData = jsonData
+    self.jobData = jobData
+    self.sema = sema
+    self.ws = None
+    self.table_count = 0
+    self.row_count = 0
+    self.fake_string = ""
+    self.words_engineering = []
+    self.row_data = {}
+
+    #self.jobData = None
+    self.error = False
+    self.current_table = None
+    self.jobDB = connect_db()
+    self.jobCursor = self.jobDB.cursor(dictionary=True)
+    self.jobCursor.execute("use %s"%(self.jobData['database_name']))
+    self.fakerDB = connect_db()
+    self.fakerCursor = self.fakerDB.cursor(dictionary=True)
+    self.fakerCursor.execute("use faker")
+    try:
+      from collections import OrderedDict
+    except ImportError:
+      OrderedDict = dict
+
+  
+  def openWebsocket(self):
+    self.ws = create_connection("ws://localhost:3333/adonis-ws")
+    self.ws.send(json.dumps({
+      "t": 1,
+      "d": {"topic": 'job'}
+    }))
 
 
+  def wsMessage(self, message, status, message_type="log"):
+    self.ws.send(json.dumps({
+      "t": 7,
+      "d": {
+        "topic": "job",
+        "event": "message",
+        "data": {"database_id": self.jobData['id'], "job_id": self.jobData['job_id'], "user_id": self.jobData['user_id'], "database_name": self.jobData['database_name'], "message": str(message), "status": status, "table": self.current_table, "message_type": message_type}
+      }
+    }))
 
+  def clearTable(self, table_name):
+    self.jobCursor.execute("TRUNCATE TABLE %s"%(table_name))
+    self.jobDB.commit()
 
-words_engineering = []
-row_data = {}
-
-jobData = None
-error = False
-current_table = None
-
-def openWebsocket():
-  global ws
-  ws = create_connection("ws://localhost:3333/adonis-ws")
-  ws.send(json.dumps({
-    "t": 1,
-    "d": {"topic": 'job'}
-  }))
-
-
-def wsMessage(message, status, message_type="log"):
-  global current_table
-  ws.send(json.dumps({
-    "t": 7,
-    "d": {
-      "topic": "job",
-      "event": "message",
-      "data": {"database_id": jobData['id'], "job_id": jobData['job_id'], "user_id": jobData['user_id'], "database_name": jobData['database_name'], "message": str(message), "status": status, "table": current_table, "message_type": message_type}
-    }
-  }))
-
-def clearTable(table_name):
-  db = connect_db()
-  cursor = db.cursor(dictionary=True)
-  cursor.execute("TRUNCATE TABLE %s"%(table_name))
-  db.commit()
-  db.close()
-
-def generateBOM(table, command):
-  # BOM|qty_ASO|min_children|max_children|min_levels|max_levels
-  #Get the command values
-  commands = command.split("|")
-  aso_qty = int(commands[1])
-  #Maximum child parts each ASO should have
-  max_children = int(commands[2])
-  #Maximum levels each BOM should have
-  max_levels = int(commands[3])
-  #Generate ASO top level parts
-  for _ in range(aso_qty):
-    aso_items = []
-    #Generate a fake ASO part number
-    aso_item = {"parent_item": "", "item": fake.ssn(), "level": 0 }
-    generateData(table, 1, aso_item)
-    # add this top level aso to the list
-    aso_items.append(aso_item)
-    #keep track of the highest level in the BOM we have reached
-    max_level = 1
-    for _ in range(random_number(10, max_children, 0)):
-      #Generate a random BOM level number
-      #if max_level is less than max_levels then maximum random number should be max_level + 1
-      # else maximum random number should be max_levels
-      level = random_number(1, (max_level + 1) if max_level < max_levels else max_levels, 0)
-      if level > max_level:
-        max_level = level
-      #Get random item from ASO list
-      asoListItem = random.choice(aso_items)
-      
-      newLevel = asoListItem['level'] + 1
-      tryCount = 0
-      while newLevel >= max_levels:
+  def generateBOM(self, table, command):
+    # BOM|qty_ASO|min_children|max_children|min_levels|max_levels
+    #Get the command values
+    commands = command.split("|")
+    aso_qty = int(commands[1])
+    #Maximum child parts each ASO should have
+    max_children = int(commands[2])
+    #Maximum levels each BOM should have
+    max_levels = int(commands[3])
+    #Generate ASO top level parts
+    for _ in range(aso_qty):
+      aso_items = []
+      #Generate a fake ASO part number
+      aso_item = {"parent_item": "", "item": fake.ssn(), "level": 0 }
+      self.generateData(table, 1, aso_item)
+      # add this top level aso to the list
+      aso_items.append(aso_item)
+      #keep track of the highest level in the BOM we have reached
+      max_level = 1
+      for _ in range(self.random_number(10, max_children, 0)):
+        #Generate a random BOM level number
+        #if max_level is less than max_levels then maximum random number should be max_level + 1
+        # else maximum random number should be max_levels
+        level = self.random_number(1, (max_level + 1) if max_level < max_levels else max_levels, 0)
+        if level > max_level:
+          max_level = level
+        #Get random item from ASO list
         asoListItem = random.choice(aso_items)
+        
         newLevel = asoListItem['level'] + 1
-        tryCount = tryCount + 1
-        if(tryCount > 100):
-          sys.exit("could not find a level below or equal to max_aso_levels in over 100 tries")
-      item = { "parent_item": asoListItem['item'], "item": fake.ssn(), "level": newLevel}
-      aso_items.append(item)
-      generateData(table, 1, item)
+        tryCount = 0
+        while newLevel >= max_levels:
+          asoListItem = random.choice(aso_items)
+          newLevel = asoListItem['level'] + 1
+          tryCount = tryCount + 1
+          if(tryCount > 100):
+            sys.exit("could not find a level below or equal to max_aso_levels in over 100 tries")
+        item = { "parent_item": asoListItem['item'], "item": fake.ssn(), "level": newLevel}
+        aso_items.append(item)
+        self.generateData(table, 1, item)
 
-def random_number(start, end, prec=0):
-  number = round(random.uniform(start,end),prec)
-  if(prec == 0):
-    return int(number)
-  return number
+  def random_number(self, start, end, prec=0):
+    number = round(random.uniform(start,end),prec)
+    if(prec == 0):
+      return int(number)
+    return number
 
-def engineering_words(numWords=3):
-  global words_engineering
-  if(len(words_engineering) == 0):
-    file_eng = open('words/engineering.txt')
-    words_engineering = [line.strip() for line in file_eng]
-    file_eng.close()
-  words = random.sample(words_engineering, numWords)
-  return ' '.join(words)
+  def engineering_words(self, numWords=3):
+    if(len(self.words_engineering) == 0):
+      file_eng = open('words/engineering.txt')
+      self.words_engineering = [line.strip() for line in file_eng]
+      file_eng.close()
+    words = random.sample(self.words_engineering, numWords)
+    return ' '.join(words)
 
-def getRecordFromTable(command, database_name):
-  commands = command.split("|")
-  table = commands[1]
-  field = commands[3]
-  db = connect_db()
-  cursor = db.cursor(dictionary=True)
-  cursor.execute("use %s;"%(database_name))
-  if(str(commands[2]).lower() == 'random'):
-    #Get a random record
-    cursor.execute("SELECT %s FROM %s ORDER BY RAND() LIMIT 1"%(field, table))
-    record = cursor.fetchone()
-    db.close()
-    return record[field]
+  def getRecordFromTable(self, command, database_name):
+    commands = command.split("|")
+    table = commands[1]
+    field = commands[3]
+    if(str(commands[2]).lower() == 'random'):
+      #Get a random record
+      self.jobCursor.execute("SELECT %s FROM %s ORDER BY RAND() LIMIT 1"%(field, table))
+      record = self.jobCursor.fetchone()
+      return record[field]
 
-  if(str(commands[2]).lower() == 'first'):
-    #todo get first record in table
-    pass
-  if(str(commands[2]).lower() == 'last'):
-    #todo get last record in table
-    pass
+    if(str(commands[2]).lower() == 'first'):
+      #todo get first record in table
+      pass
+    if(str(commands[2]).lower() == 'last'):
+      #todo get last record in table
+      pass
 
-def date_greater_than_field(field_name, max_date='today'):
-  #@TODO If value of max_date is less than field_name return field_name value
-  start_date = datetime.strptime(row_data[field_name].strip('"'), "%Y-%m-%d")
-  #Check if an absolute date has been given by prepending with 'date:' or a string date i.e. +1y
-  
-  if(str(max_date)[0:5] != 'date:'):
-    end_date = fake.date_between(max_date, max_date)
-  else:
-    end_date = datetime.strptime(max_date[5:], "%Y-%m-%d")
-  
-  #Get the random date
-  try:
-    dateObj = fake.date_between_dates(start_date, end_date)
-  except:
-    #An exception will usually be caused by max_date being less than the value 
-    #of field_name. In this case we just return end_date
-    dateObj = end_date
-  #Format the date for use in MySQL
-  mysqlDate = dateObj.strftime('%Y-%m-%d')
-  return str(mysqlDate)
-
-def get_offset_days_from_strtotime(offset_string):
-  #offset_string should look like -1y, +1y, -2w, +1m etc 
-  try:
-    offset_date = fake.date_between(offset_string, 'today')
-  except:
-    offset_date = fake.date_between('today', offset_string)
-  today = date.today()
-  offset = offset_date - today
-  return offset.days
-
-def get_offset_days_from_date(offset_date):
-  today = date.today()
-  offset = offset_date - today
-  return offset.days
-  
-def date_less_than_field(field_name, min_date='-1y'):
-  
-  #@TODO If value of max_date is less than field_name return field_name value
-  end_date = datetime.strptime(row_data[field_name].strip('"'), "%Y-%m-%d")
-  #Check if an absolute date has been given by prepending with 'date:' or a string date i.e. +1y
-  
-  if(str(min_date)[0:5] != 'date:'):
-    #Start date should be field_name - -1y
-    offset_days = get_offset_days_from_strtotime(min_date)
-    start_date = end_date - timedelta(days=abs(offset_days))
-  else:
-    start_date_ref = datetime.strptime(min_date[5:], "%Y-%m-%d").date()
-  try:
-    calculated_date = fake.date_between(start_date_ref, end_date)
-  except:
-    calculated_date = start_date_ref
-  return calculated_date.strftime('%Y-%m-%d')
-
-def number_greater_than_field(field_name, max=100):
-  field_value = row_data[field_name]
-  if(field_value == max):
-    return field_value
-  if(type(field_value) is not float and type(field_value) is not int):
-    try:
-      field_value = float(field_value)
-    except Exception as e:
-      print("Error in get_number_greater_than_field: %s"%(e))
-      sys.exit()
-  return random_number(field_value, max, 0 if type(field_value) is int else 2)
-
-def number_less_than_field(field_name, min=0, allow_negative=False):
-  field_value = row_data[field_name]
-  if(field_value == min):
-    return field_value
-  if(type(field_value) is not float and type(field_value) is not int):
-    try:
-      field_value = float(field_value)
-    except Exception as e:
-      print("Error in get_number_greater_than_field: %s"%(e))
-      sys.exit()
-  number = random_number(min, field_value, 0 if type(field_value) is int else 2)
-  #check if number is negative and allow_negative is False
-  if(number < 0 and not allow_negative):
-    number = 0
-  return number
-
-def date_between(start_date, end_date):
-  dateObj = fake.date_between(start_date, end_date)
-  mysqlDate = dateObj.strftime('%Y-%m-%d')
-  return str(mysqlDate)
-
-def getFakeData(fake_list, field_name, database_name, data=None):
-  global fake_string
-  global error
-  if(fake_list == None or type(fake_list) is not list or len(fake_list) == 0):
-    return
-
-  fake_commands = []
-  fake_weights = []
-  for cmd in fake_list:
-    fake_commands.append(cmd['command'])
-    fake_weights.append(cmd['percent'])
-  #print(fakeCommands)
-  fake_string = random.choices(fake_commands, fake_weights)[0]
-  
-  
-  #Check if this fake command is get data from the data variable
-  if(str(fake_string[0:4]).lower() == 'each'):
-    if(data is None):
-      print("Warning: Your fake command was 'each', but no data was provided")
-      return ""
+  def date_greater_than_field(self, field_name, max_date='today'):
+    #@TODO If value of max_date is less than field_name return field_name value
+    start_date = datetime.strptime(self.row_data[field_name].strip('"'), "%Y-%m-%d")
+    #Check if an absolute date has been given by prepending with 'date:' or a string date i.e. +1y
+    
+    if(str(max_date)[0:5] != 'date:'):
+      end_date = fake.date_between(max_date, max_date)
     else:
-      #Get the field name with which holds the data to return
-      row_data[field_name] = fake_string[5:]
-      field = fake_string[5:]
+      end_date = datetime.strptime(max_date[5:], "%Y-%m-%d")
+    
+    #Get the random date
+    try:
+      dateObj = fake.date_between_dates(start_date, end_date)
+    except:
+      #An exception will usually be caused by max_date being less than the value 
+      #of field_name. In this case we just return end_date
+      dateObj = end_date
+    #Format the date for use in MySQL
+    mysqlDate = dateObj.strftime('%Y-%m-%d')
+    return str(mysqlDate)
+
+  def get_offset_days_from_strtotime(self, offset_string):
+    #offset_string should look like -1y, +1y, -2w, +1m etc 
+    try:
+      offset_date = fake.date_between(offset_string, 'today')
+    except:
+      offset_date = fake.date_between('today', offset_string)
+    today = date.today()
+    offset = offset_date - today
+    return offset.days
+
+  def get_offset_days_from_date(self, offset_date):
+    today = date.today()
+    offset = offset_date - today
+    return offset.days
+    
+  def date_less_than_field(self, field_name, min_date='-1y'):
+    
+    #@TODO If value of max_date is less than field_name return field_name value
+    end_date = datetime.strptime(self.row_data[field_name].strip('"'), "%Y-%m-%d")
+    #Check if an absolute date has been given by prepending with 'date:' or a string date i.e. +1y
+    
+    if(str(min_date)[0:5] != 'date:'):
+      #Start date should be field_name - -1y
+      offset_days = self.get_offset_days_from_strtotime(min_date)
+      start_date = end_date - timedelta(days=abs(offset_days))
+    else:
+      start_date_ref = datetime.strptime(min_date[5:], "%Y-%m-%d").date()
+    try:
+      calculated_date = fake.date_between(start_date_ref, end_date)
+    except:
+      calculated_date = start_date_ref
+    return calculated_date.strftime('%Y-%m-%d')
+
+  def number_greater_than_field(self, field_name, max=100):
+    field_value = self.row_data[field_name]
+    if(field_value == max):
+      return field_value
+    if(type(field_value) is not float and type(field_value) is not int):
       try:
-        #If we can find the data field return the data
-        row_data[field_name] = data[field]
-        return '"' + str(data[field]) + '"'
+        field_value = float(field_value)
       except Exception as e:
-        error = True
-        #If we can't find the data field, generate an error message and return an empty string
-        wsMessage("Error: Unable to find specified field '%s' in the data provided"%(field), "error")
-        print("Error: Unable to find specified field '%s' in the data provided"%(field))
+        print("Error in get_number_greater_than_field: %s"%(e))
+        sys.exit()
+    return self.random_number(field_value, max, 0 if type(field_value) is int else 2)
+
+  def number_less_than_field(self, field_name, min=0, allow_negative=False):
+    field_value = self.row_data[field_name]
+    if(field_value == min):
+      return field_value
+    if(type(field_value) is not float and type(field_value) is not int):
+      try:
+        field_value = float(field_value)
+      except Exception as e:
+        print("Error in get_number_greater_than_field: %s"%(e))
+        sys.exit()
+    number = self.random_number(min, field_value, 0 if type(field_value) is int else 2)
+    #check if number is negative and allow_negative is False
+    if(number < 0 and not allow_negative):
+      number = 0
+    return number
+
+  def date_between(self, start_date, end_date):
+    dateObj = fake.date_between(start_date, end_date)
+    mysqlDate = dateObj.strftime('%Y-%m-%d')
+    return str(mysqlDate)
+
+  def getFakeData(self, fake_list, field_name, data=None):
+    if(fake_list == None or type(fake_list) is not list or len(fake_list) == 0):
+      return
+
+    fake_commands = []
+    fake_weights = []
+    for cmd in fake_list:
+      fake_commands.append(cmd['command'])
+      fake_weights.append(cmd['percent'])
+    #print(fakeCommands)
+    self.fake_string = random.choices(fake_commands, fake_weights)[0]
+    
+    
+    #Check if this fake command is get data from the data variable
+    if(str(self.fake_string[0:4]).lower() == 'each'):
+      if(data is None):
+        print("Warning: Your fake command was 'each', but no data was provided")
         return ""
-
-  if(str(fake_string[0:5]).lower() == 'table'):
-    #Get data from a table
-    value = getRecordFromTable(fake_string, database_name)
-    row_data[field_name] = value
-    return "'" + str(value) + "'"
-  #We must have a proper faker command. we use eval to generate the data
-  #print(fakeString)
-  try:
-    value = eval(fake_string)
-    if(type(value) is int or type(value) is float):
-      row_data[field_name] = value
-      return value
-    elif type(value) is list:
-      value = ' '.join(value)
-      return "\"%s\""%(value)
-    else:
-      row_data[field_name] = "\"%s\""%(value)
-      return "\"%s\""%(value)
-  except Exception as e:
-    error = True
-    wsMessage(e, "error")
-
-def generateData(table, database_name, qty=1, eachData=None):
-  global row_data
-  global row_count
-  global error
-  db = connect_db()
-  cursor = db.cursor(dictionary=True)
-  cursor.execute("use %s;"%(database_name))
-  try:
-    for _ in range(qty):
-      row_data = {}
-      sql = "INSERT INTO %s"%(table['table_name'])
-      sql = sql + "("
-      for field in table['fields']:
-        field_def = field
-        if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
-          continue
-        sql = sql + field['name'] + ","
-      sql = sql[0:-1]
-      sql = sql + ") values ("
-      for field in table['fields']:
-        if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
-          continue
-        sql = sql + "" + str(getFakeData(field['fake'], field['name'], database_name, eachData)) + ","
-      sql = sql[0:-1]
-      sql = sql + ");"
-      row_count = row_count + 1
-      cursor.execute(sql)
-    db.commit()
-    db.close()
-  except Exception as e:
-    db.close()
-    error = True
-    wsMessage(e, "error")
-
-def getTableRecordCount(table, database_name):
-  db = connect_db()
-  cursor = db.cursor(dictionary=True)
-  cursor.execute("use %s;"%(database_name))
-  cursor.execute("select count(*) as record_count from %s"%(table))
-  result = cursor.fetchall()
-  db.close()
-  return result[0]['record_count']
-
-def generateTableEach(table, database_name):
-  #Get table name
-  commands = table['fake_qty'].split("|")
-  table_name = commands[2]
-  
-  #Get number of records from table
-  record_count = getTableRecordCount(table_name, database_name)
-  itter_count = 0
-  limit = 500
-  db = connect_db()
-  cursor = db.cursor(dictionary=True)
-  cursor.execute("use %s;"%(database_name))
-  for offset in range(0, record_count-1,limit):
-    cursor.execute("select * from %s limit %d offset %d"%(table_name,limit,offset))
-    records = cursor.fetchall()
-    for record in records:
-      try:
-        start_qty = commands[3]
-      except:
-        start_qty = 1
-      
-      try:
-        end_qty = commands[4]
-      except:
-        end_qty = None
-      
-      if(end_qty is not None):
-        qty = random_number(int(start_qty), int(end_qty), 0)
       else:
-        qty = start_qty
-      generateData(table, database_name, qty, record)
-  db.close()
+        #Get the field name with which holds the data to return
+        self.row_data[field_name] = self.fake_string[5:]
+        field = self.fake_string[5:]
+        try:
+          #If we can find the data field return the data
+          self.row_data[field_name] = data[field]
+          return '"' + str(data[field]) + '"'
+        except Exception as e:
+          self.error = True
+          #If we can't find the data field, generate an error message and return an empty string
+          self.wsMessage("Error: Unable to find specified field '%s' in the data provided"%(field), "error")
+          print("Error: Unable to find specified field '%s' in the data provided"%(field))
+          return ""
 
-def recordFileInDB(folder, export):
-  try:
-    database_id = export['database_id']
-    export_id = export['id']
-    path = os.path.join(folder, export['file_name'])
-    exporttype = export['format']
-    data = urllib.parse.urlencode({'database_id': database_id, 'export_id': export_id, 'path': path, 'exporttype': exporttype})
-    data = data.encode('ascii')
-    urllib.request.urlopen('http://localhost:3333/api/v1/export/file', data)
-  except Exception as e:
-    wsMessage("Error writing record for file %s to the database"%(export['file_name']), 'error')
-    wsMessage(e,'error')
-
-
-def writeDatabaseRecordsToCSV(records, export, folder):
-  wsMessage("Generating export file %s"%(export['file_name']),'success')
-  try:
-    with open(os.path.join(folder, export['file_name']), "w") as f:
-      w = csv.DictWriter(f, records[0].keys())
-      w.writerow(dict((fn,fn) for fn in records[0].keys()))
-      w.writerows(records)
-      recordFileInDB(folder,export)
-  except Exception as e:
-    wsMessage("Error generating file %s"%(export['file_name']), 'error')
-    wsMessage(e,'error')
-
-def writeDatabaseRecordsToXML(records, export, folder):
-  wsMessage("Generating export file %s"%(export['file_name']),'success')
-  try:
-    xml = dicttoxml(records)
-    with open(os.path.join(folder, export['file_name']), "wb") as f:
-      f.write(xml)
-    recordFileInDB(folder,export)
-  except Exception as e:
-    wsMessage("Error generating file %s"%(export['file_name']), 'error')
-    wsMessage(e,'error')
-
-def writeDatabaseRecordsToMySQL(records, export, folder):
-  wsMessage("Generating export file %s"%(export['file_name']),'success')
-  try:
-    for record in records:
-      values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in record.values())
-      columns = ', '.join(record.keys())
-      sql = "INSERT INTO %s ( %s ) VALUES ( %s );" % (export['sql_insert_table'], columns, values)
-      with open(os.path.join(folder, export['file_name']), "a") as f:
-        f.write(sql + "\n")
-    recordFileInDB(folder,export)
-  except Exception as e:
-    wsMessage("Error generating file %s"%(export['file_name']), 'error')
-    wsMessage(e,'error')
-
-def exportTable(export, job, folder, database_name):
-  db = connect_db()
-  cursor = db.cursor(dictionary=True)
-  cursor.execute("use %s;"%(database_name))
-  try:
-    cursor.execute("use %s"%(job['database_name']))
-    cursor.execute("select * from %s"%(export['table_name']))
-    records = cursor.fetchall()
-    db.close()
-    if export['format'] == 'csv':
-      writeDatabaseRecordsToCSV(records, export, folder)
-    elif export['format'] == 'xml':
-      writeDatabaseRecordsToXML(records, export, folder)
-    elif export['format'] == 'mysql':
-      writeDatabaseRecordsToMySQL(records, export, folder)
-    wsMessage('Exported table %s to file %s'%(export['table_name'], export['file_name']), 'success')
-  except Exception as e:
-    wsMessage(e, 'error')
-    db.close()
-
-def exportSQL(export, job, folder, database_name):
-  db = connect_db()
-  cursor = db.cursor(dictionary=True)
-  cursor.execute("use %s;"%(database_name))
-  try:
-    cursor.execute("use %s"%(job['database_name']))
-    cursor.execute(export['sql'])
-    records = cursor.fetchall()
-    db.close()
-    if export['format'] == 'csv':
-      writeDatabaseRecordsToCSV(records, export, folder)
-    elif export['format'] == 'xml':
-      writeDatabaseRecordsToXML(records, export, folder)
-    elif export['format'] == 'mysql':
-      writeDatabaseRecordsToMySQL(records, export, folder)
-    wsMessage('Exported SQL Result to file %s'%(export['file_name']), 'success')
-  except Exception as e:
-    wsMessage(e, 'error')
-    db.close()
-
-def createExportFolder(job):
-  folder = "export_db_%s"%(job['database_name'])
-  try:
-    os.mkdir(folder)
-    return folder
-  except Exception as e:
-    return os.path.abspath(folder)
-
-def clearExportFolder(folder):
-    for filename in os.listdir(folder):
-      file_path = os.path.join(folder, filename)
-      try:
-        if os.path.isfile(file_path) or os.path.islink(file_path):
-          os.unlink(file_path)
-        elif os.path.isdir(file_path):
-          shutil.rmtree(file_path)
-      except Exception as e:
-        wsMessage("Failed to clear export folder", "error")
-
-
-def processExports(job, database_name):
-  db = connect_db()
-  cursor = db.cursor(dictionary=True)
-  cursor.execute("use faker;")
-  try:
-    #Get the database id from the passed in job
-    database_id = job['id']
-
-    #Get exports to process for the requested database
-    sql = "select e.*, t.table_name from `exports` e left join tbls t on t.id = e.tbl_id where e.database_id = %d and active = 1;"%(database_id)
-    cursor.execute(sql)
-    exports = cursor.fetchall()
-
-    #Create a folder for the files to be put int
-    folder = createExportFolder(job)
-    
-    #Delete any existing export files from the database
-    cursor.execute("delete from exportfiles where database_id = %d"%(database_id))
-    db.commit()
-    db.close()
-    # Delete any existing files from the filesystem
-    clearExportFolder(folder)
-
-    #Process each of the exports 
-    for export in exports:
-      if export['tbl_id'] is not None:
-        exportTable(export, job, folder, database_name)
+    if(str(self.fake_string[0:5]).lower() == 'table'):
+      #Get data from a table
+      value = self.getRecordFromTable(self.fake_string, self.jobData['database_name'])
+      self.row_data[field_name] = value
+      return "'" + str(value) + "'"
+    #We must have a proper faker command. we use eval to generate the data
+    #print(fakeString)
+    try:
+      value = eval(self.fake_string)
+      if(type(value) is int or type(value) is float):
+        self.row_data[field_name] = value
+        return value
+      elif type(value) is list:
+        value = ' '.join(value)
+        return "\"%s\""%(value)
       else:
-        exportSQL(export, job, folder, database_name)
-  except Exception as e:
-    wsMessage(e, 'error')
+        self.row_data[field_name] = "\"%s\""%(value)
+        return "\"%s\""%(value)
+    except Exception as e:
+      self.error = True
+      self.wsMessage(e, "error")
 
-def run(fakeData, job, sema):
-  #Connect to Database
-  db = connect_db()
-  cursor = db.cursor(dictionary=True)
-  
-  
-  openWebsocket()
-  global jobData
-  jobData = job
-  global table_count
-  global row_count
-  global error
-  global current_table
+  def generateData(self, table, qty=1, eachData=None):
+    try:
+      for _ in range(qty):
+        self.row_data = {}
+        sql = "INSERT INTO %s"%(table['table_name'])
+        sql = sql + "("
+        for field in table['fields']:
+          field_def = field
+          if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
+            continue
+          sql = sql + field['name'] + ","
+        sql = sql[0:-1]
+        sql = sql + ") values ("
+        for field in table['fields']:
+          if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
+            continue
+          sql = sql + "" + str(self.getFakeData(field['fake'], field['name'], eachData)) + ","
+        sql = sql[0:-1]
+        sql = sql + ");"
+        self.row_count = self.row_count + 1
+        self.jobCursor.execute(sql)
+      self.jobDB.commit()
+    except Exception as e:
+      self.error = True
+      self.wsMessage(e, "error")
 
-  try:
-    #Create database
-    create_db(fakeData, True)
-    
-    wsMessage("Created database %s"%(fakeData['database_name']), "running")
-    #Use database
-    cursor.execute("USE %s"%(fakeData['database_name']))
-    
-    for table in fakeData['tables']:
-      current_table = table['table_name']
-      if error == True:
-        wsMessage("Ending job run due to error, see logs above for more details.", "error")
-        ws.close()
-        sema.release()
-        return
-      wsMessage("Processing table %s"%(table['table_name']), "running")
-      table_count = table_count + 1
-      fake_qty = table['fake_qty']
-      if(type(fake_qty) == int):
-        generateData(table, fakeData['database_name'], fake_qty)
-      elif(fake_qty[0:10] == "table|each"):
-        generateTableEach(table, fakeData['database_name'])
-      elif(fake_qty[0:3] == "BOM"):
-        generateBOM(table, fake_qty)
-    
-    #Process exports
-    processExports(job, fakeData['database_name'])
-    db.commit()
-    db.close()
-    wsMessage("Database population complete created %d tables and %d records"%(table_count, row_count), "complete")
-    ws.close()
-    sema.release()
+  def getTableRecordCount(self, table):
+    self.jobCursor.execute("select count(*) as record_count from %s"%(table))
+    result = self.jobCursor.fetchall()
+    return result[0]['record_count']
 
-  except Exception as e:
-    wsMessage(e, "error")
-    ws.close()
-    sema.release()
-  
+  def generateTableEach(self, table):
+    #Get table name
+    commands = table['fake_qty'].split("|")
+    table_name = commands[2]
+    
+    #Get number of records from table
+    record_count = self.getTableRecordCount(table_name)
+    itter_count = 0
+    limit = 500
+    for offset in range(0, record_count-1,limit):
+      self.jobCursor.execute("select * from %s limit %d offset %d"%(table_name,limit,offset))
+      records = self.jobCursor.fetchall()
+      for record in records:
+        try:
+          start_qty = commands[3]
+        except:
+          start_qty = 1
+        
+        try:
+          end_qty = commands[4]
+        except:
+          end_qty = None
+        
+        if(end_qty is not None):
+          qty = self.random_number(int(start_qty), int(end_qty), 0)
+        else:
+          qty = start_qty
+        self.generateData(table, qty, record)
+
+  def recordFileInDB(self, folder, export):
+    try:
+      database_id = export['database_id']
+      export_id = export['id']
+      path = os.path.join(folder, export['file_name'])
+      exporttype = export['format']
+      data = urllib.parse.urlencode({'database_id': database_id, 'export_id': export_id, 'path': path, 'exporttype': exporttype})
+      data = data.encode('ascii')
+      urllib.request.urlopen('http://localhost:3333/api/v1/export/file', data)
+    except Exception as e:
+      self.wsMessage("Error writing record for file %s to the database"%(export['file_name']), 'error')
+      self.wsMessage(e,'error')
+
+
+  def writeDatabaseRecordsToCSV(self, records, export, folder):
+    self.wsMessage("Generating export file %s"%(export['file_name']),'success')
+    try:
+      with open(os.path.join(folder, export['file_name']), "w") as f:
+        w = csv.DictWriter(f, records[0].keys())
+        w.writerow(dict((fn,fn) for fn in records[0].keys()))
+        w.writerows(records)
+        self.recordFileInDB(folder,export)
+    except Exception as e:
+      self.wsMessage("Error generating file %s"%(export['file_name']), 'error')
+      self.wsMessage(e,'error')
+
+  def writeDatabaseRecordsToXML(self, records, export, folder):
+    self.wsMessage("Generating export file %s"%(export['file_name']),'success')
+    try:
+      xml = dicttoxml(records)
+      with open(os.path.join(folder, export['file_name']), "wb") as f:
+        f.write(xml)
+      self.recordFileInDB(folder,export)
+    except Exception as e:
+      self.wsMessage("Error generating file %s"%(export['file_name']), 'error')
+      self.wsMessage(e,'error')
+
+  def writeDatabaseRecordsToMySQL(self, records, export, folder):
+    self.wsMessage("Generating export file %s"%(export['file_name']),'success')
+    try:
+      for record in records:
+        values = ', '.join("'" + str(x).replace('/', '_') + "'" for x in record.values())
+        columns = ', '.join(record.keys())
+        sql = "INSERT INTO %s ( %s ) VALUES ( %s );" % (export['sql_insert_table'], columns, values)
+        with open(os.path.join(folder, export['file_name']), "a") as f:
+          f.write(sql + "\n")
+      self.recordFileInDB(folder,export)
+    except Exception as e:
+      self.wsMessage("Error generating file %s"%(export['file_name']), 'error')
+      self.wsMessage(e,'error')
+
+  def exportTable(self, export, folder):
+    try:
+      self.jobCursor.execute("use %s"%(self.jobData['database_name']))
+      self.jobCursor.execute("select * from %s"%(export['table_name']))
+      records = self.jobCursor.fetchall()
+      if export['format'] == 'csv':
+        self.writeDatabaseRecordsToCSV(records, export, folder)
+      elif export['format'] == 'xml':
+        self.writeDatabaseRecordsToXML(records, export, folder)
+      elif export['format'] == 'mysql':
+        self.writeDatabaseRecordsToMySQL(records, export, folder)
+      self.wsMessage('Exported table %s to file %s'%(export['table_name'], export['file_name']), 'success')
+    except Exception as e:
+      self.wsMessage(e, 'error')
+
+  def exportSQL(self, export, folder):
+    try:
+      self.jobCursor.execute("use %s"%(self.jobData['database_name']))
+      self.jobCursor.execute(export['sql'])
+      records = self.jobCursor.fetchall()
+      if export['format'] == 'csv':
+        self.writeDatabaseRecordsToCSV(records, export, folder)
+      elif export['format'] == 'xml':
+        self.writeDatabaseRecordsToXML(records, export, folder)
+      elif export['format'] == 'mysql':
+        self.writeDatabaseRecordsToMySQL(records, export, folder)
+      self.wsMessage('Exported SQL Result to file %s'%(export['file_name']), 'success')
+    except Exception as e:
+      self.wsMessage(e, 'error')
+
+  def createExportFolder(self):
+    folder = "export_db_%s"%(self.jobData['database_name'])
+    try:
+      os.mkdir(folder)
+      return folder
+    except Exception as e:
+      return os.path.abspath(folder)
+
+  def clearExportFolder(self, folder):
+      for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        try:
+          if os.path.isfile(file_path) or os.path.islink(file_path):
+            os.unlink(file_path)
+          elif os.path.isdir(file_path):
+            shutil.rmtree(file_path)
+        except Exception as e:
+          wsMessage("Failed to clear export folder", "error")
+
+
+  def processExports(self):
+    try:
+      #Get the database id from the passed in job
+      database_id = self.jobData['id']
+
+      #Get exports to process for the requested database
+      sql = "select e.*, t.table_name from `exports` e left join tbls t on t.id = e.tbl_id where e.database_id = %d and active = 1;"%(database_id)
+      self.fakerCursor.execute(sql)
+      exports = self.fakerCursor.fetchall()
+
+      #Create a folder for the files to be put int
+      folder = self.createExportFolder()
+      
+      #Delete any existing export files from the database
+      self.fakerCursor.execute("delete from exportfiles where database_id = %d"%(database_id))
+      self.fakerDB.commit()
+      # Delete any existing files from the filesystem
+      self.clearExportFolder(folder)
+
+      #Process each of the exports 
+      for export in exports:
+        if export['tbl_id'] is not None:
+          self.exportTable(export, folder)
+        else:
+          self.exportSQL(export, folder)
+    except Exception as e:
+      self.wsMessage(e, 'error')
+
+  def run(self):
+    #Connect to Database
+    
+    self.openWebsocket()
+    try:
+      #Create database
+      create_db(self.fakeData, True)
+      
+      self.wsMessage("Created database %s"%(self.fakeData['database_name']), "running")
+      #Use database
+      self.jobCursor.execute("USE %s"%(self.fakeData['database_name']))
+      
+      for table in self.fakeData['tables']:
+        self.current_table = table['table_name']
+        if self.error == True:
+          self.wsMessage("Ending job run due to error, see logs above for more details.", "error")
+          self.ws.close()
+          self.sema.release()
+          return
+        self.wsMessage("Processing table %s"%(table['table_name']), "running")
+        self.table_count = self.table_count + 1
+        fake_qty = table['fake_qty']
+        if(type(fake_qty) == int):
+          self.generateData(table, fake_qty)
+        elif(fake_qty[0:10] == "table|each"):
+          self.generateTableEach(table)
+        elif(fake_qty[0:3] == "BOM"):
+          self.generateBOM(table, fake_qty)
+      
+      #Process exports
+      self.processExports()
+      self.jobDB.commit()
+      self.wsMessage("Database population complete created %d tables and %d records"%(self.table_count, self.row_count), "complete")
+      self.ws.close()
+      self.sema.release()
+
+    except Exception as e:
+      self.wsMessage(e, "error")
+      self.ws.close()
+      self.sema.release()
+    
