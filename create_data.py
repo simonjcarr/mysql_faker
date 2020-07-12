@@ -47,12 +47,15 @@ class Job(threading.Thread):
     #self.jobData = None
     self.error = False
     self.current_table = None
+    self.last_table = None
     self.jobDB = connect_db()
     self.jobCursor = self.jobDB.cursor(dictionary=True)
     self.jobCursor.execute("use %s"%(self.jobData['database_name']))
     self.fakerDB = connect_db()
     self.fakerCursor = self.fakerDB.cursor(dictionary=True)
     self.fakerCursor.execute("use faker")
+    self.tabledata = {}
+    self.sqlValues = ""
     try:
       from collections import OrderedDict
     except ImportError:
@@ -136,7 +139,33 @@ class Job(threading.Thread):
     words = random.sample(self.words_engineering, numWords)
     return ' '.join(words)
 
+  def getRecordFromTableStored(self, command, database_name):
+    commands = command.split("|")
+    table = commands[1]
+    field = commands[3]
+    #get all data from table and store in local variable
+    if table not in self.tabledata:
+      print("fetching data")
+      self.jobCursor.execute("SELECT * FROM %s ORDER BY RAND()"%(table))
+      self.tabledata[table] = self.jobCursor.fetchall()
+    if(str(commands[2]).lower() == 'random'):
+      #Get a random record
+      #self.jobCursor.execute("SELECT %s FROM %s ORDER BY RAND() LIMIT 1"%(field, table))
+      #record = self.jobCursor.fetchone()
+      record = random.choice(self.tabledata[table])
+      if record[field] == None:
+        print("record is None")
+      return record[field]
+    if(str(commands[2]).lower() == 'first'):
+      #todo get first record in table
+      pass
+    if(str(commands[2]).lower() == 'last'):
+      #todo get last record in table
+      pass
+  
   def getRecordFromTable(self, command, database_name):
+    return self.getRecordFromTableStored(command, database_name)
+    return
     commands = command.split("|")
     table = commands[1]
     field = commands[3]
@@ -295,8 +324,55 @@ class Job(threading.Thread):
       self.error = True
       self.wsMessage(e, "error")
 
+  def generateDataExtendedInserts(self, table, qty=1, eachData=None):
+    try:     
+      self.sqlValues = ""
+      valuesCount = 0
+      for _ in range(qty):
+        self.row_data = {}
+        sql = "INSERT INTO %s"%(table['table_name'])
+        sql = sql + "("
+        for field in table['fields']:
+          field_def = field
+          if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
+            continue
+          sql = sql + field['name'] + ","
+        sql = sql[0:-1]
+        sql = sql + ") values "
+        
+        self.sqlValues = self.sqlValues + "("
+        for field in table['fields']:
+          if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
+            continue
+          self.sqlValues = self.sqlValues + "" + str(self.getFakeData(field['fake'], field['name'], eachData)) + ","
+        self.sqlValues = self.sqlValues[0:-1]
+        self.sqlValues = self.sqlValues + "),"
+        valuesCount = valuesCount + 1
+        if(valuesCount >= 1500):
+          sqlStatement = sql + self.sqlValues[:-1]
+          self.jobCursor.execute(sqlStatement)
+          valuesCount = 0
+          self.sqlValues = ""
+        self.row_count = self.row_count + 1
+      if(len(self.sqlValues) > 0):
+        sqlStatement = sql + self.sqlValues[:-1]
+        self.jobCursor.execute(sqlStatement)
+        valuesCount = 0
+        self.sqlValues = ""
+      self.jobDB.commit()
+      self.last_table = table['table_name']
+    except Exception as e:
+      self.error = True
+      self.wsMessage(e, "error")
+
   def generateData(self, table, qty=1, eachData=None):
+    self.generateDataExtendedInserts(table, qty, eachData)
+    return
     try:
+      #Create a file to write sql to
+      sqlFile = self.jobData['database_name'] + "_" + table['table_name'] + ".sql"
+      print("sql file = %s"%(sqlFile))
+      self.createSQLFile(sqlFile)
       for _ in range(qty):
         self.row_data = {}
         sql = "INSERT INTO %s"%(table['table_name'])
@@ -313,13 +389,14 @@ class Job(threading.Thread):
             continue
           sql = sql + "" + str(self.getFakeData(field['fake'], field['name'], eachData)) + ","
         sql = sql[0:-1]
-        sql = sql + ");"
+        sql = sql + ");\n"
         self.row_count = self.row_count + 1
         self.jobCursor.execute(sql)
       self.jobDB.commit()
     except Exception as e:
       self.error = True
       self.wsMessage(e, "error")
+
 
   def getTableRecordCount(self, table):
     self.jobCursor.execute("select count(*) as record_count from %s"%(table))
