@@ -194,7 +194,7 @@ While others are used as control commands to get random data or create relations
 
 # List of custom commands
 
-### `random_number(start_date, end_date, prec=0)`
+### `random_number(start, end, prec=0)`
 Produces a random number between two numbers and to a certain decimal place.
 - random_number(start, end, prec=0)
    - [start] The minimum value i.e. 10

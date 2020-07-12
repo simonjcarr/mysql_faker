@@ -40,6 +40,7 @@ if __name__ == "__main__":
       if not dbJob:
         continue
       database_id = dbJob['id']
+      
       json_data = get_json(database_id)
       worker = Job(json_data, dbJob)
       worker.start()

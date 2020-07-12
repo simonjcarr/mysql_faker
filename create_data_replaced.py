@@ -8,7 +8,6 @@ from faker.providers import ssn
 from database_connection import connect_db, close_db
 from create_database import create_db
 import random
-import math
 import json
 import collections
 import sys
@@ -32,8 +31,12 @@ fake.add_provider(phone_number)
 fake.add_provider(company)
 maxThreads = 3
 threadLimiter = threading.BoundedSemaphore(maxThreads)
+
+
+
 class Job(threading.Thread):
   def __init__(self, jsonData, jobData):
+    
     #super().__init__()
     threading.Thread.__init__(self)
     self.jsonData = jsonData
@@ -65,86 +68,12 @@ class Job(threading.Thread):
       from collections import OrderedDict
     except ImportError:
       OrderedDict = dict
-
-  
-  def openWebsocket(self):
-    self.ws = create_connection("ws://localhost:3333/adonis-ws", on_error = self.ws_error)
-    self.ws.send(json.dumps({
-      "t": 1,
-      "d": {"topic": 'job'}
-    }))
-
-  def ws_error(self, ws, error):
-    print("web socket error")
-    print(error)
-    print("attempting to reopen websocket")
-    self.openWebsocket()
-
-
-  def wsMessage(self, message, status, message_type="log"):
-    try:
-      self.ws.send(json.dumps({
-        "t": 7,
-        "d": {
-          "topic": "job",
-          "event": "message",
-          "data": {"database_id": self.jobData['id'], "job_id": self.jobData['job_id'], "user_id": self.jobData['user_id'], "database_name": self.jobData['database_name'], "message": str(message), "status": status, "table": self.current_table, "message_type": message_type}
-        }
-      }))
-    except Exception as e:
-      print("Websocket error")
-      print(e)
-      self.openWebsocket()
-
-  def clearTable(self, table_name):
-    self.jobCursor.execute("TRUNCATE TABLE %s"%(table_name))
-    self.jobDB.commit()
-
-  def generateBOM(self, table, command):
-    # BOM|qty_ASO|min_children|max_children|min_levels|max_levels
-    #Get the command values
-    commands = command.split("|")
-    aso_qty = int(commands[1])
-    #Maximum child parts each ASO should have
-    max_children = int(commands[2])
-    #Maximum levels each BOM should have
-    max_levels = int(commands[3])
-    #Generate ASO top level parts
-    for _ in range(aso_qty):
-      aso_items = []
-      #Generate a fake ASO part number
-      aso_item = {"parent_item": "", "item": fake.ssn(), "level": 0 }
-      self.generateData(table, 1, aso_item)
-      # add this top level aso to the list
-      aso_items.append(aso_item)
-      #keep track of the highest level in the BOM we have reached
-      max_level = 1
-      for _ in range(self.random_number(10, max_children, 0)):
-        #Generate a random BOM level number
-        #if max_level is less than max_levels then maximum random number should be max_level + 1
-        # else maximum random number should be max_levels
-        level = self.random_number(1, (max_level + 1) if max_level < max_levels else max_levels, 0)
-        if level > max_level:
-          max_level = level
-        #Get random item from ASO list
-        asoListItem = random.choice(aso_items)
-        
-        newLevel = asoListItem['level'] + 1
-        tryCount = 0
-        while newLevel >= max_levels:
-          asoListItem = random.choice(aso_items)
-          newLevel = asoListItem['level'] + 1
-          tryCount = tryCount + 1
-          if(tryCount > 100):
-            sys.exit("could not find a level below or equal to max_aso_levels in over 100 tries")
-        item = { "parent_item": asoListItem['item'], "item": fake.ssn(), "level": newLevel}
-        aso_items.append(item)
-        self.generateData(table, 1, item)
+    
 
   def random_number(self, start, end, prec=0):
-    number = round(random.uniform(start,end), prec)
+    number = round(random.uniform(start,end),prec)
     if(prec == 0):
-      return int(math.ceil(number))
+      return int(number)
     return number
 
   def engineering_words(self, numWords=3):
@@ -155,48 +84,7 @@ class Job(threading.Thread):
     words = random.sample(self.words_engineering, numWords)
     return ' '.join(words)
 
-  def getRecordFromTableStored(self, command, database_name):
-    commands = command.split("|")
-    table = commands[1]
-    field = commands[3]
-    #get all data from table and store in local variable
-    if table not in self.tabledata:
-      print("fetching data")
-      self.jobCursor.execute("SELECT * FROM %s ORDER BY RAND()"%(table))
-      self.tabledata[table] = self.jobCursor.fetchall()
-    if(str(commands[2]).lower() == 'random'):
-      #Get a random record
-      #self.jobCursor.execute("SELECT %s FROM %s ORDER BY RAND() LIMIT 1"%(field, table))
-      #record = self.jobCursor.fetchone()
-      record = random.choice(self.tabledata[table])
-      if record[field] == None:
-        print("record is None")
-      return record[field]
-    if(str(commands[2]).lower() == 'first'):
-      #todo get first record in table
-      pass
-    if(str(commands[2]).lower() == 'last'):
-      #todo get last record in table
-      pass
-  
-  def getRecordFromTable(self, command, database_name):
-    return self.getRecordFromTableStored(command, database_name)
-    return
-    commands = command.split("|")
-    table = commands[1]
-    field = commands[3]
-    if(str(commands[2]).lower() == 'random'):
-      #Get a random record
-      self.jobCursor.execute("SELECT %s FROM %s ORDER BY RAND() LIMIT 1"%(field, table))
-      record = self.jobCursor.fetchone()
-      return record[field]
 
-    if(str(commands[2]).lower() == 'first'):
-      #todo get first record in table
-      pass
-    if(str(commands[2]).lower() == 'last'):
-      #todo get last record in table
-      pass
 
   def date_greater_than_field(self, field_name, max_date='today'):
     #@TODO If value of max_date is less than field_name return field_name value
@@ -285,9 +173,116 @@ class Job(threading.Thread):
     mysqlDate = dateObj.strftime('%Y-%m-%d')
     return str(mysqlDate)
 
+  
+  def openWebsocket(self):
+    self.ws = create_connection("ws://localhost:3333/adonis-ws")
+    self.ws.send(json.dumps({
+      "t": 1,
+      "d": {"topic": 'job'}
+    }))
+
+
+  def wsMessage(self, message, status, message_type="log"):
+    self.ws.send(json.dumps({
+      "t": 7,
+      "d": {
+        "topic": "job",
+        "event": "message",
+        "data": {"database_id": self.jobData['id'], "job_id": self.jobData['job_id'], "user_id": self.jobData['user_id'], "database_name": self.jobData['database_name'], "message": str(message), "status": status, "table": self.current_table, "message_type": message_type}
+      }
+    }))
+
+  def clearTable(self, table_name):
+    self.jobCursor.execute("TRUNCATE TABLE %s"%(table_name))
+    self.jobDB.commit()
+
+  def generateBOM(self, table, command):
+    # BOM|qty_ASO|min_children|max_children|min_levels|max_levels
+    #Get the command values
+    commands = command.split("|")
+    aso_qty = int(commands[1])
+    #Maximum child parts each ASO should have
+    max_children = int(commands[2])
+    #Maximum levels each BOM should have
+    max_levels = int(commands[3])
+    #Generate ASO top level parts
+    for _ in range(aso_qty):
+      aso_items = []
+      #Generate a fake ASO part number
+      aso_item = {"parent_item": "", "item": fake.ssn(), "level": 0 }
+      self.generateData(table, 1, aso_item)
+      # add this top level aso to the list
+      aso_items.append(aso_item)
+      #keep track of the highest level in the BOM we have reached
+      max_level = 1
+      for _ in range(self.random_number(10, max_children, 0)):
+        #Generate a random BOM level number
+        #if max_level is less than max_levels then maximum random number should be max_level + 1
+        # else maximum random number should be max_levels
+        level = self.random_number(1, (max_level + 1) if max_level < max_levels else max_levels, 0)
+        if level > max_level:
+          max_level = level
+        #Get random item from ASO list
+        asoListItem = random.choice(aso_items)
+        
+        newLevel = asoListItem['level'] + 1
+        tryCount = 0
+        while newLevel >= max_levels:
+          asoListItem = random.choice(aso_items)
+          newLevel = asoListItem['level'] + 1
+          tryCount = tryCount + 1
+          if(tryCount > 100):
+            sys.exit("could not find a level below or equal to max_aso_levels in over 100 tries")
+        item = { "parent_item": asoListItem['item'], "item": fake.ssn(), "level": newLevel}
+        aso_items.append(item)
+        self.generateData(table, 1, item)
+
+  def getRecordFromTableStored(self, command, database_name):
+    commands = command.split("|")
+    table = commands[1]
+    field = commands[3]
+    #get all data from table and store in local variable
+    if table not in self.tabledata:
+      print("fetching data")
+      self.jobCursor.execute("SELECT * FROM %s ORDER BY RAND()"%(table))
+      self.tabledata[table] = self.jobCursor.fetchall()
+    if(str(commands[2]).lower() == 'random'):
+      #Get a random record
+      #self.jobCursor.execute("SELECT %s FROM %s ORDER BY RAND() LIMIT 1"%(field, table))
+      #record = self.jobCursor.fetchone()
+      record = random.choice(self.tabledata[table])
+      if record[field] == None:
+        print("record is None")
+      return record[field]
+    if(str(commands[2]).lower() == 'first'):
+      #todo get first record in table
+      pass
+    if(str(commands[2]).lower() == 'last'):
+      #todo get last record in table
+      pass
+
+def getRecordFromTable(self, command, database_name):
+  return self.getRecordFromTableStored(command, database_name)
+  return
+  commands = command.split("|")
+  table = commands[1]
+  field = commands[3]
+  if(str(commands[2]).lower() == 'random'):
+    #Get a random record
+    self.jobCursor.execute("SELECT %s FROM %s ORDER BY RAND() LIMIT 1"%(field, table))
+    record = self.jobCursor.fetchone()
+    return record[field]
+
+  if(str(commands[2]).lower() == 'first'):
+    #todo get first record in table
+    pass
+  if(str(commands[2]).lower() == 'last'):
+    #todo get last record in table
+    pass
+
  
   def getFakeData(self, fake_list, field_name, data=None):
-    
+    print("get fake data")
     if(fake_list == None or type(fake_list) is not list or len(fake_list) == 0):
       return
 
@@ -328,7 +323,18 @@ class Job(threading.Thread):
     #We must have a proper faker command. we use eval to generate the data
     #print(fakeString)
     try:
+      print(self.fake_string[0:4])
+      if self.fake_string[0:4] != 'fake':
+        print("I am here")
+        fun, params, _ = re.split(r'[()]', self.fake_string)
+        # params = map(int, params.split(","))
+        func = getattr(Job, fun)
+        method_to_call = func(*params)
+        print(method_to_call)
+      else:
+        method_to_call = self.fake_string
       value = eval(self.fake_string)
+      
       if(type(value) is int or type(value) is float):
         self.row_data[field_name] = value
         return value
@@ -602,6 +608,7 @@ class Job(threading.Thread):
       self.wsMessage(e, 'error')
 
   def run(self):
+    print("run")
     #Connect to Database
     threadLimiter.acquire()
     try:
@@ -611,6 +618,7 @@ class Job(threading.Thread):
     
 
   def jobRun(self):
+    print("run job")
     self.openWebsocket()
     try:
       #Create database
