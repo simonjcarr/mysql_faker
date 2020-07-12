@@ -161,7 +161,6 @@ class Job(threading.Thread):
     field = commands[3]
     #get all data from table and store in local variable
     if table not in self.tabledata:
-      print("fetching data")
       self.jobCursor.execute("SELECT * FROM %s ORDER BY RAND()"%(table))
       self.tabledata[table] = self.jobCursor.fetchall()
     if(str(commands[2]).lower() == 'random'):
@@ -343,27 +342,28 @@ class Job(threading.Thread):
       self.wsMessage(e, "error")
 
   def generateDataExtendedInserts(self, table, qty=1, eachData=None):
-    try:  
-      try:
-        if table['table_name'] != self.last_table['table_name'] and self.last_table is not None and len(self.sqlValues) > 0:
-          sql = "INSERT INTO %s"%(self.last_table['table_name'])
-          sql = sql + "("
-          for field in self.last_table['fields']:
-            field_def = field
-            if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
-              continue
-            sql = sql + field['name'] + ","
-          sql = sql[0:-1]
-          sql = sql + ") values "   
-          self.sql_insert = sql
+    try:
+      # try:
+      #   if table['table_name'] != self.last_table['table_name'] and self.last_table is not None and len(self.sqlValues) > 0:
+      #     self.jobDB.commit()
+      #     sql = "INSERT INTO %s"%(self.last_table['table_name'])
+      #     sql = sql + "("
+      #     for field in self.last_table['fields']:
+      #       field_def = field
+      #       if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
+      #         continue
+      #       sql = sql + field['name'] + ","
+      #     sql = sql[0:-1]
+      #     sql = sql + ") values "   
+      #     self.sql_insert = sql
 
-          sqlStatement = sql + self.sqlValues[:-1]
-          self.jobCursor.execute(sqlStatement)
-          self.jobDB.commit()
-          self.sqlValues = ""
-          self.valuesCount = 0
-      except Exception as e:
-        pass
+      #     sqlStatement = sql + self.sqlValues[:-1]
+      #     self.jobCursor.execute(sqlStatement)
+      #     self.jobDB.commit()
+      #     self.sqlValues = ""
+      #     self.valuesCount = 0
+      # except Exception as e:
+      #   pass
       sql = "INSERT INTO %s"%(table['table_name'])
       sql = sql + "("
       for field in table['fields']:
@@ -393,11 +393,11 @@ class Job(threading.Thread):
         self.row_count = self.row_count + 1
       if(len(self.sqlValues) > 0):
         pass
-        #sqlStatement = sql + self.sqlValues[:-1]
-        #self.jobCursor.execute(sqlStatement)
-        #self.valuesCount = 0
-        #self.sqlValues = ""
-      #self.jobDB.commit()
+        # sqlStatement = sql + self.sqlValues[:-1]
+        # self.jobCursor.execute(sqlStatement)
+        # self.valuesCount = 0
+        # self.sqlValues = ""
+      # self.jobDB.commit()
       self.last_table = table
       self.newTable = False
     except Exception as e:
@@ -411,7 +411,6 @@ class Job(threading.Thread):
     try:
       #Create a file to write sql to
       sqlFile = self.jobData['database_name'] + "_" + table['table_name'] + ".sql"
-      print("sql file = %s"%(sqlFile))
       self.createSQLFile(sqlFile)
       for _ in range(qty):
         self.row_data = {}
@@ -445,16 +444,18 @@ class Job(threading.Thread):
 
   def generateTableEach(self, table):
     #Get table name
+    self.jobDB.commit()
     commands = table['fake_qty'].split("|")
     table_name = commands[2]
     
     #Get number of records from table
     record_count = self.getTableRecordCount(table_name)
     itter_count = 0
-    limit = 500
+    limit = 100000
     for offset in range(0, record_count-1,limit):
       self.jobCursor.execute("select * from %s limit %d offset %d"%(table_name,limit,offset))
       records = self.jobCursor.fetchall()
+      
       for record in records:
         try:
           start_qty = commands[3]
@@ -621,6 +622,28 @@ class Job(threading.Thread):
       self.jobCursor.execute("USE %s"%(self.fakeData['database_name']))
       
       for table in self.fakeData['tables']:
+        if len(self.sqlValues) > 0:
+          sql = "INSERT INTO %s"%(self.last_table['table_name'])
+          sql = sql + "("
+          for field in self.last_table['fields']:
+            field_def = field
+            if(field['fake'] == None or type(field['fake']) is not list  or len(field['fake']) == 0):
+              continue
+            sql = sql + field['name'] + ","
+          sql = sql[0:-1]
+          sql = sql + ") values "   
+          self.sql_insert = sql
+
+          sqlStatement = sql + self.sqlValues[:-1]
+          self.jobCursor.execute(sqlStatement)
+          self.jobDB.commit()
+          self.sqlValues = ""
+          self.valuesCount = 0
+          self.jobDB.commit()
+
+
+
+
         self.current_table = table['table_name']
         self.newTable = True
         if self.error == True:
