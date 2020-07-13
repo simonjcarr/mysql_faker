@@ -1,4 +1,5 @@
 import sys, os, time, urllib.request, json
+import settings
 #from create_data import run
 from create_data import Job
 from logData import write_log
@@ -10,7 +11,7 @@ def get_job():
   db = connect_db()
   try:
     cursor = db.cursor(dictionary=True)
-    cursor.execute("USE faker;")
+    cursor.execute("USE %s;"%(os.getenv("FAKER_DATABASE")))
     
     cursor.execute("SELECT j.id as job_id, d.*  FROM `jobs` j JOIN `databases` d ON d.id = `j`.`database_id` WHERE `j`.`running` = 0 LIMIT 1")
     dbJob = cursor.fetchone()
@@ -25,7 +26,7 @@ def get_job():
 
 def get_json(database_id):
   
-  url = "http://localhost:3333/api/v1/json/%d"%(database_id)
+  url = "%s/api/v1/json/%d"%(os.getenv("API_URL"), database_id)
   with urllib.request.urlopen(url) as u:
     data = json.loads(u.read())
   return data

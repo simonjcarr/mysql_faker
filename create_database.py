@@ -2,6 +2,7 @@ import json
 from database_connection import connect_db, close_db
 #print("Creating database")
 db = connect_db()
+
 cursor = db.cursor()
 
 # with open("./tables.json") as f:

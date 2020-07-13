@@ -60,7 +60,7 @@ class Job(threading.Thread):
       self.jobCursor.execute("use %s"%(self.jobData['database_name']))
     self.fakerDB = connect_db()
     self.fakerCursor = self.fakerDB.cursor(dictionary=True)
-    self.fakerCursor.execute("use faker")
+    self.fakerCursor.execute("use %s"%(os.getenv("FAKER_DATABASE")))
     self.tabledata = {}
     self.sqlValues = ""
     self.valuesCount = 0
@@ -73,7 +73,7 @@ class Job(threading.Thread):
 
   
   def openWebsocket(self):
-    self.ws = create_connection("ws://localhost:3333/adonis-ws", on_error = self.ws_error)
+    self.ws = create_connection(os.getenv("WS_URL"), on_error = self.ws_error)
     self.ws.send(json.dumps({
       "t": 1,
       "d": {"topic": 'job'}
@@ -486,7 +486,7 @@ class Job(threading.Thread):
       exporttype = export['format']
       data = urllib.parse.urlencode({'database_id': database_id, 'export_id': export_id, 'path': path, 'exporttype': exporttype})
       data = data.encode('ascii')
-      urllib.request.urlopen('http://localhost:3333/api/v1/export/file', data)
+      urllib.request.urlopen('%s/api/v1/export/file'%(os.getenv("API_URL")), data)
     except Exception as e:
       self.wsMessage("Error writing record for file %s to the database"%(export['file_name']), 'error')
       self.wsMessage(e,'error')

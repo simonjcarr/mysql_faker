@@ -1,2 +1,3 @@
 Faker
 dicttoxml
+python-dotenv

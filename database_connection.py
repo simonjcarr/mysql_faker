@@ -1,13 +1,15 @@
 import mysql.connector
-
+import os
 
 def connect_db():
   try:
     db = mysql.connector.connect (
-      host="192.168.10.3",
-      user="root",
-      passwd="Pr35t0nTh30",
+      host=os.getenv("DB_HOST"),
+      user=os.getenv("DB_USER"),
+      passwd=os.getenv("DB_PASSWORD"),
+      port=os.getenv("DB_PORT")
     )
+    
     #print("Connected to database server")
     return db
   except:

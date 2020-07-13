@@ -1,6 +1,6 @@
 from websocket import create_connection
-import json, time
-ws = create_connection("ws://localhost:3333/adonis-ws")
+import json, time, os
+ws = create_connection(os.getenv("WS_URL"))
 
 ws.send(json.dumps({
   "t": 1,
