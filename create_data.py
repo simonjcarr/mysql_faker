@@ -560,7 +560,7 @@ class Job(threading.Thread):
       self.wsMessage(e, 'error')
 
   def createExportFolder(self):
-    folder = "export_db_%s"%(self.jobData['database_name'])
+    folder = os.path.join(os.getenv("EXPORT_PATH"), "export_db_%s"%(self.jobData['database_name']))
     try:
       os.mkdir(folder)
       return folder
