@@ -52,7 +52,12 @@ class Job(threading.Thread):
     self.last_table = None
     self.jobDB = connect_db()
     self.jobCursor = self.jobDB.cursor(dictionary=True)
-    self.jobCursor.execute("use %s"%(self.jobData['database_name']))
+    try:
+      self.jobCursor.execute("use %s"%(self.jobData['database_name']))
+    except Exception as e:
+      #Create database     
+      create_db(self.fakeData, True)
+      self.jobCursor.execute("use %s"%(self.jobData['database_name']))
     self.fakerDB = connect_db()
     self.fakerCursor = self.fakerDB.cursor(dictionary=True)
     self.fakerCursor.execute("use faker")
@@ -612,11 +617,10 @@ class Job(threading.Thread):
     
 
   def jobRun(self):
+    #Create database     
+    create_db(self.fakeData, True)
     self.openWebsocket()
     try:
-      #Create database
-      create_db(self.fakeData, True)
-      
       self.wsMessage("Created database %s"%(self.fakeData['database_name']), "running")
       #Use database
       self.jobCursor.execute("USE %s"%(self.fakeData['database_name']))
