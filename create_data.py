@@ -214,6 +214,8 @@ class Job(threading.Thread):
 
   def date_greater_than_field(self, field_name, max_date='today'):
     #@TODO If value of max_date is less than field_name return field_name value
+    if(self.row_data[field_name] is None):
+      return None
     start_date = datetime.strptime(self.row_data[field_name].strip('"'), "%Y-%m-%d")
     #Check if an absolute date has been given by prepending with 'date:' or a string date i.e. +1y
     
@@ -249,7 +251,8 @@ class Job(threading.Thread):
     return offset.days
     
   def date_less_than_field(self, field_name, min_date='-1y'):
-    
+    if(self.row_data[field_name] is None):
+      return None
     #@TODO If value of max_date is less than field_name return field_name value
     end_date = datetime.strptime(self.row_data[field_name].strip('"'), "%Y-%m-%d")
     #Check if an absolute date has been given by prepending with 'date:' or a string date i.e. +1y
