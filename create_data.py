@@ -151,10 +151,10 @@ class Job(threading.Thread):
         self.generateData(table, 1, item)
 
   def const(self, value):
-    if value.lower() == 'null':
-      return None
-    else:
-      return value
+    return value
+  
+  def null(self):
+    return None
 
   def random_number(self, start, end, prec=0):
     number = round(self.random.uniform(start,end), prec)
@@ -409,7 +409,6 @@ class Job(threading.Thread):
         self.valuesCount = self.valuesCount + 1
         if(self.valuesCount >= 1500):
           sqlStatement = self.sql_insert + self.sqlValues[:-1]
-          print(sqlStatement)
           self.jobCursor.execute(sqlStatement)
           self.jobDB.commit()
           self.valuesCount = 0
@@ -688,7 +687,6 @@ class Job(threading.Thread):
       #Run the final table
       if len(self.sqlValues) > 0:
         sqlStatement = self.sql_insert + self.sqlValues[:-1]
-        print(sqlStatement)
         self.jobCursor.execute(sqlStatement)
         self.jobDB.commit()
       #Clear up
