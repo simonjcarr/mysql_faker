@@ -150,6 +150,12 @@ class Job(threading.Thread):
         aso_items.append(item)
         self.generateData(table, 1, item)
 
+  def const(self, value):
+    if value.lower() == 'null':
+      return None
+    else:
+      return value
+
   def random_number(self, start, end, prec=0):
     number = round(self.random.uniform(start,end), prec)
     if(prec == 0):
@@ -319,8 +325,12 @@ class Job(threading.Thread):
         field = self.fake_string[5:]
         try:
           #If we can find the data field return the data
-          self.row_data[field_name] = data[field]
-          return '"' + str(data[field]) + '"'
+          if data[field] is None:
+            self.row_data[field_name] = None
+            return "null"
+          else:
+            self.row_data[field_name] = data[field]
+            return '"' + str(data[field]) + '"'
         except Exception as e:
           self.error = True
           #If we can't find the data field, generate an error message and return an empty string
@@ -344,8 +354,12 @@ class Job(threading.Thread):
         value = ' '.join(value)
         return "\"%s\""%(value)
       else:
-        self.row_data[field_name] = "\"%s\""%(value)
-        return "\"%s\""%(value)
+        if value is None:
+          self.row_data[field_name] = None
+          return "null"
+        else:
+          self.row_data[field_name] = "\"%s\""%(value)
+          return "\"%s\""%(value)
     except Exception as e:
       self.error = True
       self.wsMessage(e, "error")
@@ -395,6 +409,7 @@ class Job(threading.Thread):
         self.valuesCount = self.valuesCount + 1
         if(self.valuesCount >= 1500):
           sqlStatement = self.sql_insert + self.sqlValues[:-1]
+          print(sqlStatement)
           self.jobCursor.execute(sqlStatement)
           self.jobDB.commit()
           self.valuesCount = 0
@@ -438,12 +453,14 @@ class Job(threading.Thread):
           sql = sql + "" + str(self.getFakeData(field['fake'], field['name'], eachData)) + ","
         sql = sql[0:-1]
         sql = sql + ");\n"
+        print(sql)
         self.row_count = self.row_count + 1
         self.jobCursor.execute(sql)
       self.jobDB.commit()
     except Exception as e:
       self.error = True
       self.wsMessage(e, "error")
+      self.wsMessage(sql, 'error')
 
 
   def getTableRecordCount(self, table):
@@ -671,6 +688,7 @@ class Job(threading.Thread):
       #Run the final table
       if len(self.sqlValues) > 0:
         sqlStatement = self.sql_insert + self.sqlValues[:-1]
+        print(sqlStatement)
         self.jobCursor.execute(sqlStatement)
         self.jobDB.commit()
       #Clear up
