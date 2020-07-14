@@ -295,7 +295,7 @@ class Job(threading.Thread):
     return number
 
   def date_between(self, start_date, end_date):
-    dateObj = fake.date_between(start_date, end_date)
+    dateObj = self.fake.date_between(start_date, end_date)
     mysqlDate = dateObj.strftime('%Y-%m-%d')
     return str(mysqlDate)
 
