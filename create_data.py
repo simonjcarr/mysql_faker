@@ -7,7 +7,7 @@ from faker.providers import company
 from faker.providers import ssn
 from database_connection import connect_db, close_db
 from create_database import create_db
-import random
+from random import Random
 import math
 import json
 import collections
@@ -23,19 +23,23 @@ from dicttoxml import dicttoxml
 import urllib.request
 import urllib.parse
 import re
-fake = Faker()
-seed = 0
-Faker.seed(seed)
-random.seed(0)
-fake.add_provider(internet)
-fake.add_provider(phone_number)
-fake.add_provider(company)
+
+
 maxThreads = 3
 threadLimiter = threading.BoundedSemaphore(maxThreads)
 class Job(threading.Thread):
   def __init__(self, jsonData, jobData):
     #super().__init__()
     threading.Thread.__init__(self)
+
+    self.fake = Faker()
+    self.seed = 0
+    self.random = Random(self.seed)
+    Faker.seed(self.seed)
+    self.fake.add_provider(internet)
+    self.fake.add_provider(phone_number)
+    self.fake.add_provider(company)
+
     self.jsonData = jsonData
     self.fakeData = jsonData
     self.jobData = jobData
@@ -118,7 +122,7 @@ class Job(threading.Thread):
     for _ in range(aso_qty):
       aso_items = []
       #Generate a fake ASO part number
-      aso_item = {"parent_item": "", "item": fake.ssn(), "level": 0 }
+      aso_item = {"parent_item": "", "item": self.fake.ssn(), "level": 0 }
       self.generateData(table, 1, aso_item)
       # add this top level aso to the list
       aso_items.append(aso_item)
@@ -132,22 +136,22 @@ class Job(threading.Thread):
         if level > max_level:
           max_level = level
         #Get random item from ASO list
-        asoListItem = random.choice(aso_items)
+        asoListItem = self.random.choice(aso_items)
         
         newLevel = asoListItem['level'] + 1
         tryCount = 0
         while newLevel >= max_levels:
-          asoListItem = random.choice(aso_items)
+          asoListItem = self.random.choice(aso_items)
           newLevel = asoListItem['level'] + 1
           tryCount = tryCount + 1
           if(tryCount > 100):
             sys.exit("could not find a level below or equal to max_aso_levels in over 100 tries")
-        item = { "parent_item": asoListItem['item'], "item": fake.ssn(), "level": newLevel}
+        item = { "parent_item": asoListItem['item'], "item": self.fake.ssn(), "level": newLevel}
         aso_items.append(item)
         self.generateData(table, 1, item)
 
   def random_number(self, start, end, prec=0):
-    number = round(random.uniform(start,end), prec)
+    number = round(self.random.uniform(start,end), prec)
     if(prec == 0):
       return int(math.ceil(number))
     return number
@@ -157,7 +161,7 @@ class Job(threading.Thread):
       file_eng = open('words/engineering.txt')
       self.words_engineering = [line.strip() for line in file_eng]
       file_eng.close()
-    words = random.sample(self.words_engineering, numWords)
+    words = self.random.sample(self.words_engineering, numWords)
     return ' '.join(words)
 
   def getRecordFromTableStored(self, command, database_name):
@@ -172,7 +176,7 @@ class Job(threading.Thread):
       #Get a random record
       #self.jobCursor.execute("SELECT %s FROM %s ORDER BY RAND() LIMIT 1"%(field, table))
       #record = self.jobCursor.fetchone()
-      record = random.choice(self.tabledata[table])
+      record = self.random.choice(self.tabledata[table])
       if record[field] == None:
         print("record is None")
       return record[field]
@@ -208,13 +212,13 @@ class Job(threading.Thread):
     #Check if an absolute date has been given by prepending with 'date:' or a string date i.e. +1y
     
     if(str(max_date)[0:5] != 'date:'):
-      end_date = fake.date_between(max_date, max_date)
+      end_date = self.fake.date_between(max_date, max_date)
     else:
       end_date = datetime.strptime(max_date[5:], "%Y-%m-%d")
     
     #Get the random date
     try:
-      dateObj = fake.date_between_dates(start_date, end_date)
+      dateObj = self.fake.date_between_dates(start_date, end_date)
     except:
       #An exception will usually be caused by max_date being less than the value 
       #of field_name. In this case we just return end_date
@@ -226,9 +230,9 @@ class Job(threading.Thread):
   def get_offset_days_from_strtotime(self, offset_string):
     #offset_string should look like -1y, +1y, -2w, +1m etc 
     try:
-      offset_date = fake.date_between(offset_string, 'today')
+      offset_date = self.fake.date_between(offset_string, 'today')
     except:
-      offset_date = fake.date_between('today', offset_string)
+      offset_date = self.fake.date_between('today', offset_string)
     today = date.today()
     offset = offset_date - today
     return offset.days
@@ -251,7 +255,7 @@ class Job(threading.Thread):
     else:
       start_date_ref = datetime.strptime(min_date[5:], "%Y-%m-%d").date()
     try:
-      calculated_date = fake.date_between(start_date_ref, end_date)
+      calculated_date = self.fake.date_between(start_date_ref, end_date)
     except:
       calculated_date = start_date_ref
     return calculated_date.strftime('%Y-%m-%d')
@@ -301,7 +305,7 @@ class Job(threading.Thread):
       fake_commands.append(cmd['command'])
       fake_weights.append(cmd['percent'])
     #print(fakeCommands)
-    self.fake_string = random.choices(fake_commands, fake_weights)[0]
+    self.fake_string = self.random.choices(fake_commands, fake_weights)[0]
     
     
     #Check if this fake command is get data from the data variable
