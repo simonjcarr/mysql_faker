@@ -70,6 +70,8 @@ class Job(threading.Thread):
     self.valuesCount = 0
     self.sql_insert = ""
     self.newTable = True
+    self.table_each_row_count_source = 0 #Each record is source table
+    self.table_each_row_count_destination = 0 #Each record in destination table. There can be multiples of desination records for each source record
     try:
       from collections import OrderedDict
     except ImportError:
@@ -302,7 +304,12 @@ class Job(threading.Thread):
     mysqlDate = dateObj.strftime('%Y-%m-%d')
     return str(mysqlDate)
 
- 
+  def row_count_source(self):
+    return self.table_each_row_count_source
+
+  def row_count_destination(self):
+    return self.table_each_row_count_destination
+  
   def getFakeData(self, fake_list, field_name, data=None):
     
     if(fake_list == None or type(fake_list) is not list or len(fake_list) == 0):
@@ -400,7 +407,9 @@ class Job(threading.Thread):
       sql = sql[0:-1]
       sql = sql + ") values "   
       self.sql_insert = sql
+      self.table_each_row_count_destination = 0
       for _ in range(qty):
+        self.table_each_row_count_destination = self.table_each_row_count_destination + 1
         self.row_data = {}
         self.sqlValues = self.sqlValues + "("
         for field in table['fields']:
@@ -480,11 +489,13 @@ class Job(threading.Thread):
     record_count = self.getTableRecordCount(table_name)
     itter_count = 0
     limit = 100000
+    self.table_each_row_count_source = 0
     for offset in range(0, record_count-1,limit):
       self.jobCursor.execute("select * from %s limit %d offset %d"%(table_name,limit,offset))
       records = self.jobCursor.fetchall()
       
       for record in records:
+        self.table_each_row_count_source = self.table_each_row_count_source + 1
         try:
           start_qty = commands[3]
         except:
